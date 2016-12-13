@@ -62,6 +62,11 @@ __C.TRAIN.SCALES = (600,)
 # Max pixel size of the longest side of a scaled input image
 __C.TRAIN.MAX_SIZE = 1000
 
+# ALL images cut/expand to this size. using white-padding for expanding,
+# if should cut, ROIs should be reviewed.
+# (WIDTH,HEIGHT)
+__C.TRAIN.EXPAND_TO_SIZE = (1024,576)
+
 # Images to use per minibatch
 __C.TRAIN.IMS_PER_BATCH = 2
 
@@ -80,7 +85,9 @@ __C.TRAIN.BG_THRESH_HI = 0.5
 __C.TRAIN.BG_THRESH_LO = 0.1
 
 # Use horizontally-flipped images during training?
-__C.TRAIN.USE_FLIPPED = True
+__C.TRAIN.USE_FLIPPED = True # horizontal
+__C.TRAIN.USE_FLIPPED_V = True # vertical
+__C.TRAIN.FLIPPED_CLASSES = () # class indexes, empty for all classes.
 
 # Train bounding-box regressors
 __C.TRAIN.BBOX_REG = True

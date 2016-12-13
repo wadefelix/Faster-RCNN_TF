@@ -13,6 +13,138 @@ import cv2
 from fast_rcnn.config import cfg
 from utils.blob import prep_im_for_blob, im_list_to_blob
 
+def get_minibatch_fixedHW(roidb, num_classes):
+    '''
+    blobs 'data'.shape = (batchsize also imsperbatch, channels, height, width)
+          'gt_boxes'.shape = (gtboxes num of all images, 6), line=[batchnum, x1,y1,x2,y2,label]
+          'im_info'.shape = (batchsize also imsperbatch, 3) , per iminfo = [height, width,scale]
+    '''
+    assert cfg.TRAIN.HAS_RPN, "With RPN only"
+
+    processed_ims = []
+    processed_gt_boxes = []
+    processed_im_infos = []
+    minibatchid = 0
+    for i in xrange(len(roidb)):
+        im = cv2.imread(roidb[i]['image']) # H,W,C
+        if 'flipped' in roidb[i] and roidb[i]['flipped']:
+            im = im[:, ::-1, :]
+        if 'flipped_v' in roidb[i] and roidb[i]['flipped_v']:
+            im = im[::-1, :, :]
+        # gt boxes: (x1, y1, x2, y2, cls)
+        gt_inds = np.where(roidb[i]['gt_classes'] != 0)[0]
+        gt_boxes = np.empty((len(gt_inds), 6), dtype=np.float32)
+        gt_boxes[:, 0] = minibatchid
+        gt_boxes[:, 1:5] = roidb[i]['boxes'][gt_inds, :]
+        gt_boxes[:, 5] = roidb[i]['gt_classes'][gt_inds]
+
+        im_shape = im.shape
+        target_size = cfg.TRAIN.EXPAND_TO_SIZE
+
+        if im_shape[1] == target_size[0]:
+            pass
+        elif im_shape[1] < target_size[0]:
+            #padding:
+            pad = np.ones((im_shape[0], target_size[0]-im_shape[1], im_shape[2])) * 255
+            im = np.concatenate((im,pad),axis=1)
+            im_shape = im.shape
+        else:
+            #crop
+            min_x = int(np.min(gt_boxes[:,1]))
+            max_x = int(np.max(gt_boxes[:,3]))
+            if max_x - min_x + 1 <= target_size[0]:
+                #just crop image
+                if max_x < target_size[0]:
+                    im = im[:,0:target_size[0],:]
+                else :
+                    shift_x = int(round((max_x + min_x - target_size[0]) / 2.0 + 0.1))
+                    if (shift_x+target_size[0]>=im_shape[1]):
+                        shift_x = im_shape[1] - target_size[0]
+                    im = im[:,shift_x:target_size[0]+shift_x,:]
+                    gt_boxes[:, 1] = gt_boxes[:, 1] - shift_x
+                    gt_boxes[:, 3] = gt_boxes[:, 3] - shift_x
+            else:
+                # crop gt_box and image
+                gt_boxes[:, 1] = gt_boxes[:, 1] - min_x
+                gt_boxes[:, 3] = gt_boxes[:, 3] - min_x
+                gt_keep = np.empty((gt_boxes.shape[0],),dtype=np.bool)
+                gt_keep.fill(True)
+                for i_gt in range(gt_boxes.shape[0]):
+                    if gt_boxes[i_gt,1] >= target_size[0]:
+                        gt_keep[i_gt] = False
+                    elif gt_boxes[i_gt,3] >= target_size[0]:
+                        if (target_size[0]-gt_boxes[i_gt,1])/(gt_boxes[i_gt,3]-gt_boxes[i_gt,1]) < 0.7:
+                            gt_keep[i_gt] = False
+                        else:
+                            gt_boxes[i_gt,3] = target_size[0]-1
+                gt_boxes = gt_boxes[gt_keep,:]
+                im = im[:,min_x:target_size[0]+min_x,:]
+            im_shape = im.shape
+        assert im_shape[1]==target_size[0], "im_shape[1]={}, target_size[0]={}, im={}".format(im_shape[1],target_size[0],roidb[i]['image'])
+        
+        if im_shape[0] == target_size[1]:
+            pass
+        elif im_shape[0] < target_size[1]:
+            #padding:
+            pad = np.ones((target_size[1]-im_shape[0], im_shape[1], im_shape[2])) * 255
+            im = np.concatenate((im,pad),axis=0)
+            im_shape = im.shape
+        else:
+            #crop
+            min_y = int(np.min(gt_boxes[:,2]))
+            max_y = int(np.max(gt_boxes[:,4]))
+            #print "min_y",min_y,"max_y",max_y
+            if max_y - min_y + 1 <= target_size[1]:
+                #just crop image
+                if max_y < target_size[1]:
+                    im = im[0:target_size[1],:,:]
+                else :
+                    shift_y = int(round((max_y + min_y - target_size[1]) / 2.0 + 0.1))
+                    if (shift_y+target_size[1]>=im_shape[0]):
+                        shift_y = im_shape[0] - target_size[1]
+                    im = im[shift_y:target_size[1]+shift_y,:,:]
+                    gt_boxes[:, 2] = gt_boxes[:, 2] - shift_y
+                    gt_boxes[:, 4] = gt_boxes[:, 4] - shift_y
+            else:
+                # crop gt_box and image
+                gt_boxes[:, 2] = gt_boxes[:, 2] - min_y
+                gt_boxes[:, 4] = gt_boxes[:, 4] - min_y
+                gt_keep = np.empty((gt_boxes.shape[0],),dtype=np.bool)
+                gt_keep.fill(True)
+                for i_gt in range(gt_boxes.shape[0]):
+                    if gt_boxes[i_gt,2] >= target_size[1]:
+                        gt_keep[i_gt] = False
+                    elif gt_boxes[i_gt,4] >= target_size[1]:
+                        if (target_size[1]-gt_boxes[i_gt,1])/(gt_boxes[i_gt,4]-gt_boxes[i_gt,2]) < 0.7:
+                            gt_keep[i_gt] = False
+                        else:
+                            gt_boxes[i_gt,3] = target_size[1]-1
+                gt_boxes = gt_boxes[gt_keep,:]
+                im = im[min_y:target_size[1]+min_y,:,:]
+            im_shape = im.shape
+        assert im_shape[0]==target_size[1], "im_shape[0]={}, target_size[1]={},im={}".format(im_shape[0],target_size[1],roidb[i]['image'])
+        
+        im = im - cfg.PIXEL_MEANS
+        # gt_boxes may be empty
+        if len(gt_boxes) == 0:
+            print 'ATTENTION: length of the ',roidb[i]['image'],' \'s gtboxes is ZERO.'
+            continue
+        processed_gt_boxes.append(gt_boxes)
+        processed_ims.append(im)
+        processed_im_infos.append(np.array(target_size[::-1]+[1,], dtype=np.float32))
+        minibatchid += 1
+
+        
+    blobs = {'data': im_list_to_blob(processed_ims),'gt_boxes':gt_box_list_to_blob(processed_gt_boxes),'im_info':im_infos_list_to_blob(processed_im_infos)}
+    # For debug visualizations
+    # _vis_minibatch(blobs['data'], blobs['gt_boxes'][:,[5,0,1,2,3]], blobs['gt_boxes'][:,4], np.zeros((blobs['data'].shape[0])))
+    return blobs
+def gt_box_list_to_blob(processed_gt_boxes):
+    return np.vstack(processed_gt_boxes)
+
+def im_infos_list_to_blob(processed_im_infos):
+    return np.vstack(processed_im_infos)
+
 def get_minibatch(roidb, num_classes):
     """Given a roidb, construct a minibatch sampled from it."""
     num_images = len(roidb)

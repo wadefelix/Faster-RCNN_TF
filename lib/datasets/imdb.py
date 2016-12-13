@@ -100,23 +100,50 @@ class imdb(object):
     def _get_widths(self):
       return [PIL.Image.open(self.image_path_at(i)).size[0]
               for i in xrange(self.num_images)]
-
+    def _get_widths_heights(self):
+      return [PIL.Image.open(self.image_path_at(i)).size[0:2]
+              for i in xrange(self.num_images)]
     def append_flipped_images(self):
         num_images = self.num_images
-        widths = self._get_widths()
+        widths_heights = self._get_widths_heights()
+        new_image_indexes = []
+        fliped_classes = set(cfg.TRAIN.FLIPPED_CLASSES)
         for i in xrange(num_images):
-            boxes = self.roidb[i]['boxes'].copy()
-            oldx1 = boxes[:, 0].copy()
-            oldx2 = boxes[:, 2].copy()
-            boxes[:, 0] = widths[i] - oldx2 - 1
-            boxes[:, 2] = widths[i] - oldx1 - 1
-            assert (boxes[:, 2] >= boxes[:, 0]).all()
-            entry = {'boxes' : boxes,
-                     'gt_overlaps' : self.roidb[i]['gt_overlaps'],
-                     'gt_classes' : self.roidb[i]['gt_classes'],
-                     'flipped' : True}
-            self.roidb.append(entry)
-        self._image_index = self._image_index * 2
+            if len(fliped_classes)>0 and len(set(self.roidb[i]['gt_classes']) & fliped_classes) == 0 : continue
+            if cfg.TRAIN.USE_FLIPPED:
+                boxes = self.roidb[i]['boxes'].copy()
+                boxes[:, (0,2)] = widths_heights[i][0] - boxes[:, (2,0)] - 1
+                assert (boxes[:, 2] >= boxes[:, 0]).all()
+                entry = {'boxes' : boxes,
+                         'gt_overlaps' : self.roidb[i]['gt_overlaps'],
+                         'gt_classes' : self.roidb[i]['gt_classes'],
+                         'flipped' : True}
+                self.roidb.append(entry)
+                new_image_indexes.append(self._image_index[i])
+            if cfg.TRAIN.USE_FLIPPED_V:
+                boxes = self.roidb[i]['boxes'].copy()
+                boxes[:, (1,3)] = widths_heights[i][1] - boxes[:, (3,1)] - 1
+                assert (boxes[:, 3] >= boxes[:, 1]).all()
+                entry = {'boxes' : boxes,
+                         'gt_overlaps' : self.roidb[i]['gt_overlaps'],
+                         'gt_classes' : self.roidb[i]['gt_classes'],
+                         'flipped_v' : True}
+                self.roidb.append(entry)
+                new_image_indexes.append(self._image_index[i])
+            if cfg.TRAIN.USE_FLIPPED and cfg.TRAIN.USE_FLIPPED_V:
+                boxes = self.roidb[i]['boxes'].copy()
+                boxes[:, (0,2)] = widths_heights[i][0] - boxes[:, (2,0)] - 1
+                boxes[:, (1,3)] = widths_heights[i][1] - boxes[:, (3,1)] - 1
+                assert (boxes[:, 2] >= boxes[:, 0]).all()
+                assert (boxes[:, 3] >= boxes[:, 1]).all()
+                entry = {'boxes' : boxes,
+                         'gt_overlaps' : self.roidb[i]['gt_overlaps'],
+                         'gt_classes' : self.roidb[i]['gt_classes'],
+                         'flipped' : True,
+                         'flipped_v' : True}
+                self.roidb.append(entry)
+                new_image_indexes.append(self._image_index[i])
+        self._image_index += new_image_indexes
 
     def evaluate_recall(self, candidate_boxes=None, thresholds=None,
                         area='all', limit=None):

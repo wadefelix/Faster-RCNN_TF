@@ -43,18 +43,18 @@ __global__ void nms_kernel(const int n_boxes, const float nms_overlap_thresh,
   const int col_size =
         min(n_boxes - col_start * threadsPerBlock, threadsPerBlock);
 
-  __shared__ float block_boxes[threadsPerBlock * 5];
+  __shared__ float block_boxes[threadsPerBlock * 4];
   if (threadIdx.x < col_size) {
-    block_boxes[threadIdx.x * 5 + 0] =
+    block_boxes[threadIdx.x * 4 + 0] =
         dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * 5 + 0];
-    block_boxes[threadIdx.x * 5 + 1] =
+    block_boxes[threadIdx.x * 4 + 1] =
         dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * 5 + 1];
-    block_boxes[threadIdx.x * 5 + 2] =
+    block_boxes[threadIdx.x * 4 + 2] =
         dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * 5 + 2];
-    block_boxes[threadIdx.x * 5 + 3] =
+    block_boxes[threadIdx.x * 4 + 3] =
         dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * 5 + 3];
-    block_boxes[threadIdx.x * 5 + 4] =
-        dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * 5 + 4];
+    //block_boxes[threadIdx.x * 5 + 4] =
+    //    dev_boxes[(threadsPerBlock * col_start + threadIdx.x) * 5 + 4];
   }
   __syncthreads();
 
@@ -68,7 +68,7 @@ __global__ void nms_kernel(const int n_boxes, const float nms_overlap_thresh,
       start = threadIdx.x + 1;
     }
     for (i = start; i < col_size; i++) {
-      if (devIoU(cur_box, block_boxes + i * 5) > nms_overlap_thresh) {
+      if (devIoU(cur_box, block_boxes + i * 4) > nms_overlap_thresh) {
         t |= 1ULL << i;
       }
     }
