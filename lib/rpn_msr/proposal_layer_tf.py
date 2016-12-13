@@ -32,6 +32,15 @@ def proposal_layer(rpn_cls_prob_reshape,rpn_bbox_pred,im_info,cfg_key,_feat_stri
     # apply NMS with threshold 0.7 to remaining proposals
     # take after_nms_topN proposals after NMS
     # return the top proposals (-> RoIs top, scores top)
+
+
+        # bottom[0] : rpn_bbox_pred.shape = (batchsize also imsperbatch, A, H, W), also be named scores
+        # bbox deltas will be (1, 4 * A, H, W) format
+        # bottom[1] : rpn_cls_prob_reshape.shape = (batchsize also imsperbatch, 4 * A, H, W)
+        # bottom[2] : im_info.shape = (batchsize also imsperbatch, 3) , per iminfo = [width,height,scale]
+        # top[0] : rpn_rois.shape = (1 * H * W * A filtered by keep, 4 + 1) per line [batchnum,x1,y1,x2,y2]
+        # top[1] : scores.shape = (1 * H * W * A filtered by keep, 1 + 1) per line [batchnum,score]
+
     #layer_params = yaml.load(self.param_str_)
     _anchors = generate_anchors(scales=np.array(anchor_scales))
     _num_anchors = _anchors.shape[0]
@@ -41,8 +50,9 @@ def proposal_layer(rpn_cls_prob_reshape,rpn_bbox_pred,im_info,cfg_key,_feat_stri
     #rpn_bbox_pred = np.transpose(rpn_bbox_pred,[0,3,2,1])
     im_info = im_info[0]
 
-    assert rpn_cls_prob_reshape.shape[0] == 1, \
-        'Only single item batches are supported'
+    bottom = [rpn_cls_prob_reshape,rpn_bbox_pred,im_info]
+    ims_num = bottom[0].shape[0]
+
     # cfg_key = str(self.phase) # either 'TRAIN' or 'TEST'
     #cfg_key = 'TEST'
     pre_nms_topN  = cfg[cfg_key].RPN_PRE_NMS_TOP_N
@@ -88,9 +98,9 @@ def proposal_layer(rpn_cls_prob_reshape,rpn_bbox_pred,im_info,cfg_key,_feat_stri
     # Transpose and reshape predicted bbox transformations to get them
     # into the same order as the anchors:
     #
-    # bbox deltas will be (1, 4 * A, H, W) format
-    # transpose to (1, H, W, 4 * A)
-    # reshape to (1 * H * W * A, 4) where rows are ordered by (h, w, a)
+    # bbox deltas will be (ims_num, 4 * A, H, W) format
+    # transpose to (ims_num, H, W, 4 * A)
+    # reshape to (ims_num * H * W * A, 4) where rows are ordered by (ims_num, h, w, a)
     # in slowest to fastest order
     bbox_deltas = bbox_deltas.transpose((0, 2, 3, 1)).reshape((-1, 4))
 
@@ -102,7 +112,7 @@ def proposal_layer(rpn_cls_prob_reshape,rpn_bbox_pred,im_info,cfg_key,_feat_stri
     scores = scores.transpose((0, 2, 3, 1)).reshape((-1, 1))
 
     # Convert anchors into proposals via bbox transformations
-    proposals = bbox_transform_inv(anchors, bbox_deltas)
+    proposals = bbox_transform_inv(np.tile(anchors,(ims_num,1)), bbox_deltas)
 
     # 2. clip predicted boxes to image
     proposals = clip_boxes(proposals, im_info[:2])
@@ -113,27 +123,47 @@ def proposal_layer(rpn_cls_prob_reshape,rpn_bbox_pred,im_info,cfg_key,_feat_stri
     proposals = proposals[keep, :]
     scores = scores[keep]
 
+    # keep / prod(h, w, a)
+    batch_inds = keep // (K*A)
+
     # 4. sort all (proposal, score) pairs by score from highest to lowest
     # 5. take top pre_nms_topN (e.g. 6000)
-    order = scores.ravel().argsort()[::-1]
-    if pre_nms_topN > 0:
-        order = order[:pre_nms_topN]
-    proposals = proposals[order, :]
-    scores = scores[order]
-
     # 6. apply nms (e.g. threshold = 0.7)
     # 7. take after_nms_topN (e.g. 300)
     # 8. return the top proposals (-> RoIs top)
-    keep = nms(np.hstack((proposals, scores)), nms_thresh)
-    if post_nms_topN > 0:
-        keep = keep[:post_nms_topN]
-    proposals = proposals[keep, :]
-    scores = scores[keep]
+    proposals_nms = []
+    scores_nms = []
+    batch_inds_nms = []
+    for i in range(ims_num):
+            this_image = np.where(batch_inds==i)[0]
+            # 4. sort all (proposal, score) pairs by score from highest to lowest
+            # 5. take top pre_nms_topN (e.g. 6000)
+            proposals_this_image = proposals[this_image,:]
+            scores_this_image = scores[this_image,:]
+            batch_inds_this_image = batch_inds[this_image]
+            
+            order = scores_this_image.ravel().argsort()[::-1]
+            if pre_nms_topN > 0:
+                order = order[:pre_nms_topN]
+            proposals_this_image = proposals_this_image[order,:]
+            scores_this_image = scores_this_image[order,:]
+            batch_inds_this_image = batch_inds_this_image[order]
+            # 6. 7. 8.
+            keep_of_this_image = nms(np.hstack((proposals_this_image, scores_this_image)), nms_thresh)
+            if post_nms_topN > 0:
+                keep_of_this_image = keep_of_this_image[:post_nms_topN]
+            proposals_nms.append(proposals_this_image[keep_of_this_image, :])
+            scores_nms.append(scores_this_image[keep_of_this_image])
+            batch_inds_nms.append(batch_inds_this_image[keep_of_this_image].reshape(-1,1))
+
+    proposals = np.vstack(proposals_nms)
+    batch_inds = np.vstack(batch_inds_nms)
+
     # Output rois blob
     # Our RPN implementation only supports a single input image, so all
     # batch inds are 0
-    batch_inds = np.zeros((proposals.shape[0], 1), dtype=np.float32)
-    blob = np.hstack((batch_inds, proposals.astype(np.float32, copy=False)))
+    # batch_inds = np.zeros((proposals.shape[0], 1), dtype=np.float32)
+    blob = np.hstack((batch_inds.reshape(-1,1).astype(np.float32, copy=False), proposals.astype(np.float32, copy=False)))
     return blob
     #top[0].reshape(*(blob.shape))
     #top[0].data[...] = blob
