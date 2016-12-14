@@ -154,13 +154,13 @@ def runtest(args):
     # Warmup on a dummy image
     im = 128 * np.ones((300, 500, 3), dtype=np.uint8)
     for i in xrange(2):
-        _, _= im_detect(net, im)
+        _, _= im_detect(sess, net, im)
 
     mcfg.cfg.CONF_THRESH = float(args.CONF_THRESH)
     mcfg.cfg.NMS_THRESH = float(args.NMS_THRESH)
     
     task = GaptTask(args.gapt_svr)
-    task.Create(args.gapt_temp_id, args.gapt_task_title, args.gapt_task_descrip + args.caffemodel + ', CONF_THRESH={}, NMS_THRESH={}'.format(mcfg.cfg.CONF_THRESH,mcfg.cfg.NMS_THRESH));
+    task.Create(args.gapt_temp_id, args.gapt_task_title, args.gapt_task_descrip + args.model + ', CONF_THRESH={}, NMS_THRESH={}'.format(mcfg.cfg.CONF_THRESH,mcfg.cfg.NMS_THRESH));
     while True:
         im = task.TestGetData()
         if im is None: break
