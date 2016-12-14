@@ -12,19 +12,19 @@ set -e
 
 export PYTHONUNBUFFERED="True"
 
-DEV=$1
-DEV_ID=$2
-NET=$3
-DATASET=$4
+DEV=GPU
+DEV_ID=0
+NET=VGG16
+DATASET=pascal_voc
 
 array=( $@ )
 len=${#array[@]}
-EXTRA_ARGS=${array[@]:4:$len}
+EXTRA_ARGS=${array[@]:1:$len}
 EXTRA_ARGS_SLUG=${EXTRA_ARGS// /_}
 
 case $DATASET in
   pascal_voc)
-    TRAIN_IMDB="voc_2007_trainval"
+    TRAIN_IMDB="voc_6829_train"
     TEST_IMDB="voc_2007_test"
     PT_DIR="pascal_voc"
     ITERS=70000
@@ -48,9 +48,14 @@ LOG="experiments/logs/faster_rcnn_end2end_${NET}_${EXTRA_ARGS_SLUG}.txt.`date +'
 exec &> >(tee -a "$LOG")
 echo Logging output to "$LOG"
 
+NET_INIT="/home/merge/Faster-RCNN_TF/output/faster_rcnn_end2end/voc_6829_train/"
+#NET_INIT="/home/merge/Faster-RCNN_TF/output/faster_rcnn_end2end/voc_6829_train/VGGnet_fast_rcnn_iter_30000.ckpt"
+#NET_INIT=~/data/imagenet_models/VGG_imagenet.npy
+#NET_INIT="/home/merge/data/imagenet_models/VGG_imagenet.npy"
+
 time python ./tools/train_net.py --device ${DEV} --device_id ${DEV_ID} \
-  --weights data/pretrain_model/VGG_imagenet.npy \
   --imdb ${TRAIN_IMDB} \
+  --weights ${NET_INIT} \
   --iters ${ITERS} \
   --cfg experiments/cfgs/faster_rcnn_end2end.yml \
   --network VGGnet_train \

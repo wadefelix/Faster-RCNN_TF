@@ -133,9 +133,22 @@ class SolverWrapper(object):
         # iintialize variables
         sess.run(tf.initialize_all_variables())
         if self.pretrained_model is not None:
-            print ('Loading pretrained model '
+            if self.pretrained_model.endswith('.npy'):
+                print ('Loading pretrained model '
                    'weights from {:s}').format(self.pretrained_model)
-            self.net.load(self.pretrained_model, sess, True)
+                self.net.load(self.pretrained_model, sess, True)
+            elif self.pretrained_model.endswith('.ckpt'):
+                # restore from checkpoint
+                print 'Restore from checkpoint {}'.format(self.pretrained_model)
+                self.saver.restore(sess,self.pretrained_model)
+            else:
+                # restore from checkpoint
+                ckpt = tf.train.get_checkpoint_state(self.pretrained_model)
+                if ckpt and ckpt.model_checkpoint_path:
+                    print 'Restore from checkpoint {}'.format(ckpt.model_checkpoint_path)
+                    self.saver.restore(sess, ckpt.model_checkpoint_path)
+                else:
+                    raise Exception('no checkpoint found')
 
         last_snapshot_iter = -1
         timer = Timer()
