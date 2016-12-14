@@ -57,10 +57,10 @@ __C.IS_MULTISCALE = False
 
 # Scales to use during training (can list multiple scales)
 # Each scale is the pixel size of an image's shortest side
-__C.TRAIN.SCALES = (600,)
+__C.TRAIN.SCALES = (576,)
 
 # Max pixel size of the longest side of a scaled input image
-__C.TRAIN.MAX_SIZE = 1000
+__C.TRAIN.MAX_SIZE = 1024
 
 # ALL images cut/expand to this size. using white-padding for expanding,
 # if should cut, ROIs should be reviewed.
@@ -214,7 +214,8 @@ __C.DEDUP_BOXES = 1./16.
 # Pixel mean values (BGR order) as a (1, 1, 3) array
 # We use the same pixel mean for all networks even though it's not exactly what
 # they were trained with
-__C.PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
+#__C.PIXEL_MEANS = np.array([[[102.9801, 115.9465, 122.7717]]])
+__C.PIXEL_MEANS = np.array([[[233.3697, 221.3185, 234.7653]]])
 
 # For reproducibility
 __C.RNG_SEED = 3
