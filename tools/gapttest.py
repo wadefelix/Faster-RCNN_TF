@@ -141,8 +141,8 @@ def det2result(dets):
 
 
 def runtest(args):
-    # init session
-    sess = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
+  # init session
+  with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
     # load network
     net = get_network(args.net)
     # load model
@@ -167,6 +167,8 @@ def runtest(args):
         dets = detection(sess,net,im)
         task.TestSaveResult(det2result(dets))
     print "task_id = {} done. {}/task_list.php".format(task.GetTaskInfo('task_id'),args.gapt_svr)
+  # clean all
+  tf.reset_default_graph()
 
 
 class DisplayApp(tk.Frame):
