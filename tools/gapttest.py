@@ -246,10 +246,10 @@ class DisplayApp(tk.Frame):
     
     def askopenfilename_model(self):
         filename = tkFileDialog.askopenfilename(initialdir = self.initdir, filetypes = [('tensorflow checkpoint file', '.ckpt'), ('tensorflow checkpoint meta files', '.ckpt.meta'), ('all files', '*')])
-        if filename.endswith('.ckpt.meta'):
+        if filename and filename.endswith('.ckpt.meta'):
             filename = filename[:-5]
-        self.textvariables['model'].set(filename)
-        self.initdir = os.path.dirname(filename)
+            self.textvariables['model'].set(filename)
+            self.initdir = os.path.dirname(filename)
     def close(self):
         self.quit()
     def resize(self, event):
