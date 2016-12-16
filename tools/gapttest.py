@@ -20,10 +20,9 @@ from fast_rcnn.nms_wrapper import nms
 from utils.timer import Timer
 import matplotlib.pyplot as plt
 import numpy as np
-import scipy.io as sio
 import os, sys, cv2
 import argparse
-from shutil import copyfile
+import re
 
 import datetime
 import Tkinter as tk
@@ -245,11 +244,13 @@ class DisplayApp(tk.Frame):
         self.entryid += 1
     
     def askopenfilename_model(self):
-        filename = tkFileDialog.askopenfilename(initialdir = self.initdir, filetypes = [('tensorflow checkpoint file', '.ckpt'), ('tensorflow checkpoint meta files', '.ckpt.meta'), ('all files', '*')])
-        if filename and filename.endswith('.ckpt.meta'):
-            filename = filename[:-5]
-            self.textvariables['model'].set(filename)
-            self.initdir = os.path.dirname(filename)
+        filename = tkFileDialog.askopenfilename(initialdir = self.initdir, filetypes = [('Supported types',('.ckpt','.ckpt.*')), ('tensorflow checkpoint v1 file', '.ckpt'), ('tensorflow checkpoint v2 files', '.ckpt.*'), ('all files', '*')])
+        if filename:
+            res = re.search(r'.*\.ckpt',filename)
+            if res:
+                filename = res.group(0)
+                self.textvariables['model'].set(filename)
+                self.initdir = os.path.dirname(filename)
     def close(self):
         self.quit()
     def resize(self, event):
