@@ -34,7 +34,7 @@ def get_network(name):
     elif name.split('_')[0] == 'resnet':
         if name.split('_')[1] == 'test':
             import networks.resnet_test
-            return networks.resnet_test()
+            return networks.resnet_test.resnet_test()
         elif name.split('_')[1] == 'train':
             import networks.resnet_train
             return networks.resnet_train.resnet_train()
