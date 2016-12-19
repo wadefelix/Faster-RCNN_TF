@@ -298,13 +298,13 @@ class Network(object):
 
     @layer
     def batch_normalization(self, input, name, relu=True, is_training=False):
-        #if relu:
-        #    temp_layer = tf.contrib.layers.batch_norm(input, scale=True, center=True, is_training=is_training,
-        #                                              scope=name)
-        #    return tf.nn.relu(temp_layer)
-        #else:
-        #    return tf.contrib.layers.batch_norm(input, scale=True, center=True, is_training=is_training, scope=name)
-        return input
+        if relu:
+            temp_layer = tf.contrib.layers.batch_norm(input, scale=True, center=True, is_training=is_training,
+                                                      scope=name)
+            return tf.nn.relu(temp_layer)
+        else:
+            return tf.contrib.layers.batch_norm(input, scale=True, center=True, is_training=is_training, scope=name)
+        #return input
 
     @layer
     def add(self, input, name):
