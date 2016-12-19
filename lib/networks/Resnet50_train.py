@@ -14,11 +14,12 @@ class Resnet50_train(Network):
         self.data = tf.placeholder(tf.float32, shape=[None, None, None, 3], name='data')
         self.im_info = tf.placeholder(tf.float32, shape=[None, 3], name='im_info')
         self.gt_boxes = tf.placeholder(tf.float32, shape=[None, 6], name='gt_boxes')
-        self.gt_ishard = tf.placeholder(tf.int32, shape=[None], name='gt_ishard')
-        self.dontcare_areas = tf.placeholder(tf.float32, shape=[None, 4], name='dontcare_areas')
+        #self.gt_ishard = tf.placeholder(tf.int32, shape=[None], name='gt_ishard')
+        #self.dontcare_areas = tf.placeholder(tf.float32, shape=[None, 4], name='dontcare_areas')
         self.keep_prob = tf.placeholder(tf.float32)
         self.layers = dict({'data': self.data, 'im_info': self.im_info, 'gt_boxes': self.gt_boxes, \
-                            'gt_ishard': self.gt_ishard, 'dontcare_areas': self.dontcare_areas})
+                            #'gt_ishard': self.gt_ishard, 'dontcare_areas': self.dontcare_areas
+                            })
         self.trainable = trainable
         self.setup()
 
@@ -192,7 +193,7 @@ class Resnet50_train(Network):
          .conv(3, 3, 512, 1, 1, name='rpn_conv/3x3')
          .conv(1, 1, len(anchor_scales) * 3 * 2, 1, 1, padding='VALID', relu=False, name='rpn_cls_score'))
 
-        (self.feed('rpn_cls_score', 'gt_boxes', 'gt_ishard', 'dontcare_areas', 'im_info')
+        (self.feed('rpn_cls_score', 'gt_boxes', 'im_info', 'data')
          .anchor_target_layer(_feat_stride, anchor_scales, name='rpn-data'))
         # Loss of rpn_cls & rpn_boxes
 
@@ -210,7 +211,7 @@ class Resnet50_train(Network):
         (self.feed('rpn_cls_prob_reshape', 'rpn_bbox_pred', 'im_info')
          .proposal_layer(_feat_stride, anchor_scales, 'TRAIN', name='rpn_rois'))
 
-        (self.feed('rpn_rois', 'gt_boxes', 'gt_ishard', 'dontcare_areas')
+        (self.feed('rpn_rois', 'gt_boxes')
          .proposal_target_layer(n_classes, name='roi-data'))
 
         # ========= RCNN ============
