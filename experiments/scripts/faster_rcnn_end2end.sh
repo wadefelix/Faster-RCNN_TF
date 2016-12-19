@@ -58,7 +58,7 @@ NET_INIT="/home/merge/Faster-RCNN_TF/output/faster_rcnn_end2end/voc_6829_train/"
 #NET_INIT="/home/merge/data/imagenet_models/VGG_imagenet.npy"
 
 elif [ ${NET} = "resnet" ]; then
-  NETWORK=resnet_train
+  NETWORK=Resnet50_train
 
 # download from https://github.com/miraclebiu/TFFRCN_resnet50
 NET_INIT=/home/merge/data/imagenet_models/Resnet__iter_200000.ckpt

@@ -1,7 +1,7 @@
 import tensorflow as tf
 from networks.network import Network
 
-
+# https://raw.githubusercontent.com/miraclebiu/TFFRCN_resnet50/master/lib/networks/Resnet50_train.py
 #define
 
 n_classes = 21

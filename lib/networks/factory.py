@@ -40,6 +40,15 @@ def get_network(name):
             return networks.resnet_train.resnet_train()
         else:
             raise KeyError('Unknown dataset: {}'.format(name))
+    elif name.split('_')[0] == 'Resnet50':
+        if name.split('_')[1] == 'test':
+            import networks.Resnet50_test
+            return networks.Resnet50_test.Resnet50_test()
+        elif name.split('_')[1] == 'train':
+            import networks.Resnet50_train
+            return networks.Resnet50_train.Resnet50_train()
+        else:
+            raise KeyError('Unknown dataset: {}'.format(name))
     else:
         raise KeyError('Unknown dataset: {}'.format(name))
 

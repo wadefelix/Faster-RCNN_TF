@@ -90,8 +90,10 @@ class Network(object):
 
     @layer
     def conv(self, input, k_h, k_w, c_o, s_h, s_w, name, relu=True, padding=DEFAULT_PADDING, group=1, trainable=True,
-             bn = False):
+             bn = False, biased=None):
         bias = not bn
+        if biased is not None:
+            bias = biased
         self.validate_padding(padding)
         c_i = input.get_shape()[-1]
         assert c_i%group==0
@@ -293,3 +295,35 @@ class Network(object):
             if relu:
                 rslt = tf.nn.relu(rslt, name=scope.name)
             return rslt
+
+    @layer
+    def batch_normalization(self, input, name, relu=True, is_training=False):
+        #if relu:
+        #    temp_layer = tf.contrib.layers.batch_norm(input, scale=True, center=True, is_training=is_training,
+        #                                              scope=name)
+        #    return tf.nn.relu(temp_layer)
+        #else:
+        #    return tf.contrib.layers.batch_norm(input, scale=True, center=True, is_training=is_training, scope=name)
+        return input
+
+    @layer
+    def add(self, input, name):
+        """contribution by miraclebiu"""
+        return tf.add(input[0], input[1])
+
+    @layer
+    def spatial_reshape_layer(self, input, d, name):
+        input_shape = tf.shape(input)
+        # transpose: (1, H, W, A x d) -> (1, H, WxA, d)
+        return tf.reshape(input, \
+                          [input_shape[0], \
+                           input_shape[1], \
+                           -1, \
+                           int(d)])
+
+    @layer
+    def spatial_softmax(self, input, name):
+        input_shape = tf.shape(input)
+        # d = input.get_shape()[-1]
+        return tf.reshape(tf.nn.softmax(tf.reshape(input, [-1, input_shape[3]])),
+                          [-1, input_shape[1], input_shape[2], input_shape[3]], name=name)
