@@ -1,7 +1,7 @@
 import tensorflow as tf
 from networks.network import Network
+from networks.resnet_train import resnet_base
 
-# https://raw.githubusercontent.com/miraclebiu/TFFRCN_resnet50/master/lib/networks/Resnet50_train.py
 #define
 
 n_classes = 21
@@ -9,8 +9,10 @@ _feat_stride = [16,]
 anchor_scales = [8, 16, 32]
 
 
-class resnet_test(Network):
+class resnet_test(resnet_base):
     def __init__(self, trainable=True, n = 50):
+        super(self.__class__, self).__init__()
+
         self.inputs = []
         self.data = tf.placeholder(tf.float32, shape=[None, None, None, 3])
         self.im_info = tf.placeholder(tf.float32, shape=[None, 3])
@@ -19,23 +21,6 @@ class resnet_test(Network):
         self.trainable = trainable
         self.setup()
 
-    def residual_block(self, input, output, input_depth, output_depth, projection=False, trainable=True):
-        (self.feed(input)
-             .conv(1, 1, input_depth, 1, 1, name='{}_branch2a'.format(output), trainable=trainable, bn=True, relu=True)
-             .conv(3, 3, input_depth, 1, 1, name='{}_branch2b'.format(output), trainable=trainable, bn=True, relu=True)
-             .conv(1, 1, output_depth, 1, 1, name='{}_branch2c'.format(output), trainable=trainable, bn=True, relu=False))
-
-        if projection:
-            # Option B: Projection shortcut
-            (self.feed(input)
-                 .conv(1, 1, output_depth, 1, 1, name='{}_branch1'.format(output), trainable=trainable, bn=True, relu=False))
-            (self.feed('{}_branch1'.format(output), '{}_branch2c'.format(output))
-                 .eltwise_add(name=output, relu=True))
-        else:
-            # Option A: Zero-padding
-            (self.feed(input, '{}_branch2c'.format(output))
-                 .eltwise_add(name=output, relu=True))
-        return self
 
     def setup(self):
         #

@@ -284,7 +284,7 @@ class Network(object):
         return tf.nn.dropout(input, keep_prob, name=name)
 
     @layer
-    def eltwise_add(self, input, name, relu = True):
+    def add(self, input, name, relu = False):
         for i in xrange(len(input)) :
             if isinstance(input[i], tuple):
                 input[i] = input[i][0]
@@ -306,11 +306,6 @@ class Network(object):
         else:
             return tf.contrib.layers.batch_norm(input, scale=True, center=True, is_training=is_training, scope=name)
         #return input
-
-    @layer
-    def add(self, input, name):
-        """contribution by miraclebiu"""
-        return tf.add(input[0], input[1])
 
     @layer
     def spatial_reshape_layer(self, input, d, name):
