@@ -80,7 +80,7 @@ set -x
 if [ ${NET} = "VGG16" ]; then
   NETWORK=VGGnet_test
 elif [ ${NET} = "resnet" ]; then
-  NETWORK=resnet_test
+  NETWORK=Resnet50_test
 fi
 
 time python ./tools/test_net.py --device ${DEV} --device_id ${DEV_ID} \
