@@ -25,7 +25,9 @@ class resnet_test(resnet_base):
     def setup(self):
         #
         (self.feed('data')
-             .conv(7, 7, 64, 2, 2, name='conv1', trainable=False, bn=True, relu=True)
+             #.conv(7, 7, 64, 2, 2, name='conv1', trainable=False, bn=True, relu=True)
+             .conv(7, 7, 64, 2, 2, name='conv1', trainable=False, bn=False, relu=False, biased=False)
+             .batch_normalization(relu=True, name='bn_conv1', is_training=False)
              .max_pool(3, 3, 2, 2, padding='VALID', name='pool1'))
 
         (self.residual_block('pool1', 'res2a', 64, 256, projection=True, trainable=False)

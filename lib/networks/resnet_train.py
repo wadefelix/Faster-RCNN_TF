@@ -13,22 +13,38 @@ class resnet_base(Network):
         pass
 
     def residual_block(self, input, output, input_depth, output_depth, projection=False, trainable=True):
+        #(self.feed(input)
+        # .conv(1, 1, input_depth, 1, 1, name='{}_branch2a'.format(output), trainable=trainable, bn=True, relu=True)
+        # .conv(3, 3, input_depth, 1, 1, name='{}_branch2b'.format(output), trainable=trainable, bn=True, relu=True)
+        # .conv(1, 1, output_depth, 1, 1, name='{}_branch2c'.format(output), trainable=trainable, bn=True, relu=False))
+        if input.startswith("res"):
+            input = "{}_relu".format(input)
         (self.feed(input)
-         .conv(1, 1, input_depth, 1, 1, name='{}_branch2a'.format(output), trainable=trainable, bn=True, relu=True)
-         .conv(3, 3, input_depth, 1, 1, name='{}_branch2b'.format(output), trainable=trainable, bn=True, relu=True)
-         .conv(1, 1, output_depth, 1, 1, name='{}_branch2c'.format(output), trainable=trainable, bn=True, relu=False))
+        .conv(1, 1, input_depth, 1, 1, biased=False, relu=False, name='{}_branch2a'.format(output))
+        .batch_normalization(relu=True, name='bn{}_branch2a'.format(output[3:]), is_training=False)
+        .conv(3, 3, input_depth, 1, 1, biased=False, relu=False, name='{}_branch2b'.format(output))
+        .batch_normalization(relu=True, name='bn{}_branch2b'.format(output[3:]), is_training=False)
+        .conv(1, 1, output_depth, 1, 1, biased=False, relu=False, name='{}_branch2c'.format(output))
+        .batch_normalization(relu=False, name='bn{}_branch2c'.format(output[3:]), is_training=False))
 
         if projection:
             # Option B: Projection shortcut
+            #(self.feed(input)
+            # .conv(1, 1, output_depth, 1, 1, name='{}_branch1'.format(output), trainable=trainable, bn=True,
+            #       relu=False))
             (self.feed(input)
-             .conv(1, 1, output_depth, 1, 1, name='{}_branch1'.format(output), trainable=trainable, bn=True,
-                   relu=False))
+             .conv(1, 1, output_depth, 1, 1, biased=False, relu=False, name='{}_branch1'.format(output))
+             .batch_normalization(name='bn{}_branch1'.format(output[3:]), is_training=False, relu=False))
             (self.feed('{}_branch1'.format(output), '{}_branch2c'.format(output))
-             .add(name=output, relu=True))
+             .add(name=output, relu=False)
+             .relu(name='{}_relu'.format(output)))
         else:
             # Option A: Zero-padding
             (self.feed(input, '{}_branch2c'.format(output))
-             .add(name=output, relu=True))
+             #.add(name=output, relu=True)
+             .add(name=output, relu=False)
+             .relu(name='{}_relu'.format(output))
+             )
         return self
 
 
@@ -59,7 +75,9 @@ class resnet_train(resnet_base):
     def setup(self):
         #
         (self.feed('data')
-         .conv(7, 7, 64, 2, 2, name='conv1', trainable=False, bn=True, relu=True)
+         #.conv(7, 7, 64, 2, 2, name='conv1', trainable=False, bn=True, relu=True)
+         .conv(7, 7, 64, 2, 2, name='conv1', trainable=False, bn=False, relu=False, biased=False)
+         .batch_normalization(relu=True, name='bn_conv1', is_training=False)
          .max_pool(3, 3, 2, 2, padding='VALID', name='pool1'))
         # (self.feed('pool1')
         #      .conv(7, 7, 64, 2, 2, name='res2a_branch1', trainable=False, bn=True, relu=False))
@@ -127,13 +145,13 @@ class resnet_train(resnet_base):
         #      .fc(n_classes*4, relu=False, name='bbox_pred'))
 
         (self.feed('res4f', 'roi-data')
-         .roi_pool(14, 14, 1.0 / 16, name='roi_pool')
+         .roi_pool(7, 7, 1.0 / 16, name='roi_pool')
          .residual_block('roi_pool', 'res5a', 512, 2048, projection=True, trainable=True)
          .residual_block('res5a', 'res5b', 512, 2048, projection=False, trainable=True)
          .residual_block('res5b', 'res5c', 512, 2048, projection=False, trainable=True)
-         .avg_pool(7, 7, 1, 1, padding='VALID', name='pool5')
+         #.avg_pool(7, 7, 1, 1, padding='VALID', name='pool5')
          .fc(n_classes, relu=False, name='cls_score')
          .softmax(name='cls_prob')
          )
-        (self.feed('pool5')
+        (self.feed('res5c_relu')
          .fc(n_classes * 4, relu=False, name='bbox_pred'))
