@@ -42,6 +42,9 @@ __C.TRAIN.STEPSIZE = 50000
 __C.TRAIN.DISPLAY = 10
 __C.IS_MULTISCALE = False
 
+__C.NCLASSES = 21
+__C.ANCHOR_SCALES = [8, 16, 32]
+
 # Scales to compute real features
 #__C.TRAIN.SCALES_BASE = (0.25, 0.5, 1.0, 2.0, 3.0)
 #__C.TRAIN.SCALES_BASE = (1.0,)
