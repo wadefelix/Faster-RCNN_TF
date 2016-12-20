@@ -13,10 +13,6 @@ class resnet_base(Network):
         pass
 
     def residual_block(self, input, output, input_depth, output_depth, projection=False, trainable=True):
-        #(self.feed(input)
-        # .conv(1, 1, input_depth, 1, 1, name='{}_branch2a'.format(output), trainable=trainable, bn=True, relu=True)
-        # .conv(3, 3, input_depth, 1, 1, name='{}_branch2b'.format(output), trainable=trainable, bn=True, relu=True)
-        # .conv(1, 1, output_depth, 1, 1, name='{}_branch2c'.format(output), trainable=trainable, bn=True, relu=False))
         if input.startswith("res"):
             input = "{}_relu".format(input)
         (self.feed(input)
@@ -29,9 +25,6 @@ class resnet_base(Network):
 
         if projection:
             # Option B: Projection shortcut
-            #(self.feed(input)
-            # .conv(1, 1, output_depth, 1, 1, name='{}_branch1'.format(output), trainable=trainable, bn=True,
-            #       relu=False))
             (self.feed(input)
              .conv(1, 1, output_depth, 1, 1, biased=False, relu=False, name='{}_branch1'.format(output))
              .batch_normalization(name='bn{}_branch1'.format(output[3:]), is_training=False, relu=False))
@@ -41,7 +34,6 @@ class resnet_base(Network):
         else:
             # Option A: Zero-padding
             (self.feed(input, '{}_branch2c'.format(output))
-             #.add(name=output, relu=True)
              .add(name=output, relu=False)
              .relu(name='{}_relu'.format(output))
              )
@@ -75,20 +67,9 @@ class resnet_train(resnet_base):
     def setup(self):
         #
         (self.feed('data')
-         #.conv(7, 7, 64, 2, 2, name='conv1', trainable=False, bn=True, relu=True)
          .conv(7, 7, 64, 2, 2, name='conv1', trainable=False, bn=False, relu=False, biased=False)
          .batch_normalization(relu=True, name='bn_conv1', is_training=False)
          .max_pool(3, 3, 2, 2, padding='VALID', name='pool1'))
-        # (self.feed('pool1')
-        #      .conv(7, 7, 64, 2, 2, name='res2a_branch1', trainable=False, bn=True, relu=False))
-        # (self.feed('pool1')
-        #      .conv(1, 1, 256, 1, 1, name='res2a_branch1', trainable=False, bn=True, relu=False))
-        # (self.feed('pool1')
-        #      .conv(1, 1, 64, 1, 1, name='res2a_branch2a', trainable=False, bn=True, relu=True)
-        #      .conv(3, 3, 64, 1, 1, name='res2a_branch2b', trainable=False, bn=True, relu=True)
-        #      .conv(1, 1, 256, 1, 1, name='res2a_branch2c', trainable=False, bn=True, relu=False))
-        # (self.feed('res2a_branch1','res2a_branch2c')
-        #      .eltwise_add("res2a"))
         (self.residual_block('pool1', 'res2a', 64, 256, projection=True, trainable=False)
          .residual_block('res2a', 'res2b', 64, 256, projection=False, trainable=False)
          .residual_block('res2b', 'res2c', 64, 256, projection=False, trainable=False)
@@ -132,18 +113,6 @@ class resnet_train(resnet_base):
          .proposal_target_layer(n_classes, name='roi-data'))
 
         # ========= RCNN ============
-        # (self.feed('res4f', 'roi-data')
-        #      .roi_pool(7, 7, 1.0/16, name='pool_5')
-        #      .fc(4096, name='fc6')
-        #      .dropout(0.5, name='drop6')
-        #      .fc(4096, name='fc7')
-        #      .dropout(0.5, name='drop7')
-        #      .fc(n_classes, relu=False, name='cls_score')
-        #      .softmax(name='cls_prob'))
-        #
-        # (self.feed('drop7')
-        #      .fc(n_classes*4, relu=False, name='bbox_pred'))
-
         (self.feed('res4f', 'roi-data')
          .roi_pool(7, 7, 1.0 / 16, name='roi_pool')
          .residual_block('roi_pool', 'res5a', 512, 2048, projection=True, trainable=True)
