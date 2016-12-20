@@ -8,8 +8,8 @@
 SRCDIR=$1
 DESTDIRNAME=$2
 DESTDIR=/dev/shm/$2
-LNDESTDIR=~/py-faster-rcnn/data/${DESTDIRNAME/VOC/VOCdevkit}
-PYFASTRCNNCACHE=~/py-faster-rcnn/data/cache
+LNDESTDIR=~/Faster-RCNN_TF/data/${DESTDIRNAME/VOC/VOCdevkit}
+PYFASTRCNNCACHE=~/Faster-RCNN_TF/data/cache
 
 #####################################################################
 # Print warning message.
