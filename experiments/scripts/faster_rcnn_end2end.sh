@@ -7,6 +7,8 @@
 # ./experiments/scripts/faster_rcnn_end2end.sh 0 VGG_CNN_M_1024 pascal_voc \
 #   --set EXP_DIR foobar RNG_SEED 42 TRAIN.SCALES "[400, 500, 600, 700]"
 
+. ./data/copydatatoramdisk.sh /home/merge/data/6040+383+0406/VOC6829 VOC6829
+
 set -x
 set -e
 
@@ -61,7 +63,7 @@ elif [ ${NET} = "resnet" ]; then
   NETWORK=Resnet50_train
 
 # download from https://github.com/miraclebiu/TFFRCN_resnet50
-NET_INIT=/home/merge/data/imagenet_models/Resnet__iter_200000.ckpt
+NET_INIT=/home/merge/data/imagenet_models/Resnet50.npy
 
 fi
 

@@ -23,6 +23,17 @@ class Resnet50_train(Network):
         self.trainable = trainable
         self.setup()
 
+        # create ops and placeholders for bbox normalization process
+        with tf.variable_scope('bbox_pred', reuse=True):
+            weights = tf.get_variable("weights")
+            biases = tf.get_variable("biases")
+
+            self.bbox_weights = tf.placeholder(weights.dtype, shape=weights.get_shape())
+            self.bbox_biases = tf.placeholder(biases.dtype, shape=biases.get_shape())
+
+            self.bbox_weights_assign = weights.assign(self.bbox_weights)
+            self.bbox_bias_assign = biases.assign(self.bbox_biases)
+
     def setup(self):
         n_classes = cfg.NCLASSES
         # anchor_scales = [8, 16, 32]
