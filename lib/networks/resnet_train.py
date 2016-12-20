@@ -12,28 +12,30 @@ class resnet_base(Network):
     def __init__(self):
         pass
 
-    def residual_block(self, input, output, input_depth, output_depth, projection=False, trainable=True):
-        if input.startswith("res"):
+    def residual_block(self, input, output, input_depth, output_depth, projection=False, trainable=True,
+                       padding='SAME'):
+        if input not in ('pool1', 'res5a_branch2a_roipooling'):
             input = "{}_relu".format(input)
+
         (self.feed(input)
-        .conv(1, 1, input_depth, 1, 1, biased=False, relu=False, name='{}_branch2a'.format(output))
+        .conv(1, 1, input_depth, 1, 1, biased=False, relu=False, name='{}_branch2a'.format(output), padding=padding, bn=False)
         .batch_normalization(relu=True, name='bn{}_branch2a'.format(output[3:]), is_training=False)
-        .conv(3, 3, input_depth, 1, 1, biased=False, relu=False, name='{}_branch2b'.format(output))
+        .conv(3, 3, input_depth, 1, 1, biased=False, relu=False, name='{}_branch2b'.format(output), bn=False)
         .batch_normalization(relu=True, name='bn{}_branch2b'.format(output[3:]), is_training=False)
-        .conv(1, 1, output_depth, 1, 1, biased=False, relu=False, name='{}_branch2c'.format(output))
+        .conv(1, 1, output_depth, 1, 1, biased=False, relu=False, name='{}_branch2c'.format(output), bn=False)
         .batch_normalization(relu=False, name='bn{}_branch2c'.format(output[3:]), is_training=False))
 
         if projection:
             # Option B: Projection shortcut
             (self.feed(input)
-             .conv(1, 1, output_depth, 1, 1, biased=False, relu=False, name='{}_branch1'.format(output))
+             .conv(1, 1, output_depth, 1, 1, biased=False, relu=False, name='{}_branch1'.format(output), padding=padding, bn=False)
              .batch_normalization(name='bn{}_branch1'.format(output[3:]), is_training=False, relu=False))
-            (self.feed('{}_branch1'.format(output), '{}_branch2c'.format(output))
-             .add(name=output, relu=False)
-             .relu(name='{}_relu'.format(output)))
+            inputForAdd = ['{}_branch1'.format(output), '{}_branch2c'.format(output)]
         else:
+            inputForAdd = [input, '{}_branch2c'.format(output)]
             # Option A: Zero-padding
-            (self.feed(input, '{}_branch2c'.format(output))
+
+        (self.feed(*inputForAdd)
              .add(name=output, relu=False)
              .relu(name='{}_relu'.format(output))
              )
@@ -42,12 +44,12 @@ class resnet_base(Network):
 
 class resnet_train(resnet_base):
     def __init__(self, trainable=True, n=50):
-        super(self.__class__, self).__init__()
+        #super(self.__class__, self).__init__()
 
         self.inputs = []
-        self.data = tf.placeholder(tf.float32, shape=[None, None, None, 3])
-        self.im_info = tf.placeholder(tf.float32, shape=[None, 3])
-        self.gt_boxes = tf.placeholder(tf.float32, shape=[None, 6])
+        self.data = tf.placeholder(tf.float32, shape=[None, None, None, 3], name='data')
+        self.im_info = tf.placeholder(tf.float32, shape=[None, 3], name='im_info')
+        self.gt_boxes = tf.placeholder(tf.float32, shape=[None, 6], name='gt_boxes')
         self.keep_prob = tf.placeholder(tf.float32)
         self.layers = dict({'data': self.data, 'im_info': self.im_info, 'gt_boxes': self.gt_boxes})
         self.trainable = trainable
@@ -65,19 +67,21 @@ class resnet_train(resnet_base):
             self.bbox_bias_assign = biases.assign(self.bbox_biases)
 
     def setup(self):
+
         #
         (self.feed('data')
-         .conv(7, 7, 64, 2, 2, name='conv1', trainable=False, bn=False, relu=False, biased=False)
+         .conv(7, 7, 64, 2, 2, name='conv1', trainable=False, bn=False, relu=False, biased=True)
          .batch_normalization(relu=True, name='bn_conv1', is_training=False)
          .max_pool(3, 3, 2, 2, padding='VALID', name='pool1'))
+
         (self.residual_block('pool1', 'res2a', 64, 256, projection=True, trainable=False)
          .residual_block('res2a', 'res2b', 64, 256, projection=False, trainable=False)
          .residual_block('res2b', 'res2c', 64, 256, projection=False, trainable=False)
          .residual_block('res2c', 'res3a', 128, 512, projection=True, trainable=True)
-         .residual_block('res3a', 'res3b', 128, 512, projection=False, trainable=True)
+         .residual_block('res3a', 'res3b', 128, 512, projection=False, trainable=True, padding='VALID')
          .residual_block('res3b', 'res3c', 128, 512, projection=False, trainable=True)
          .residual_block('res3c', 'res3d', 128, 512, projection=False, trainable=True)
-         .residual_block('res3d', 'res4a', 256, 1024, projection=True, trainable=True)
+         .residual_block('res3d', 'res4a', 256, 1024, projection=True, trainable=True, padding='VALID')
          .residual_block('res4a', 'res4b', 256, 1024, projection=False, trainable=True)
          .residual_block('res4b', 'res4c', 256, 1024, projection=False, trainable=True)
          .residual_block('res4c', 'res4d', 256, 1024, projection=False, trainable=True)
@@ -100,11 +104,11 @@ class resnet_train(resnet_base):
 
         # ========= RoI Proposal ============
         (self.feed('rpn_cls_score')
-         .reshape_layer(2, name='rpn_cls_score_reshape')
-         .softmax(name='rpn_cls_prob'))
+         .spatial_reshape_layer(2, name='rpn_cls_score_reshape')
+         .spatial_softmax(name='rpn_cls_prob'))
 
         (self.feed('rpn_cls_prob')
-         .reshape_layer(len(anchor_scales) * 3 * 2, name='rpn_cls_prob_reshape'))
+         .spatial_reshape_layer(len(anchor_scales) * 3 * 2, name='rpn_cls_prob_reshape'))
 
         (self.feed('rpn_cls_prob_reshape', 'rpn_bbox_pred', 'im_info')
          .proposal_layer(_feat_stride, anchor_scales, 'TRAIN', name='rpn_rois'))
@@ -114,8 +118,8 @@ class resnet_train(resnet_base):
 
         # ========= RCNN ============
         (self.feed('res4f', 'roi-data')
-         .roi_pool(7, 7, 1.0 / 16, name='roi_pool')
-         .residual_block('roi_pool', 'res5a', 512, 2048, projection=True, trainable=True)
+         .roi_pool(7, 7, 1.0 / 16, name='res5a_branch2a_roipooling')
+         .residual_block('res5a_branch2a_roipooling', 'res5a', 512, 2048, projection=True, trainable=True, padding='VALID')
          .residual_block('res5a', 'res5b', 512, 2048, projection=False, trainable=True)
          .residual_block('res5b', 'res5c', 512, 2048, projection=False, trainable=True)
          #.avg_pool(7, 7, 1, 1, padding='VALID', name='pool5')
