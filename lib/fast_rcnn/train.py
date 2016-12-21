@@ -25,13 +25,14 @@ class SolverWrapper(object):
     use to unnormalize the learned bounding-box regression weights.
     """
 
-    def __init__(self, sess, network, imdb, roidb, output_dir, pretrained_model=None):
+    def __init__(self, sess, network, imdb, roidb, output_dir, pretrained_model=None, tensorboardlogdir=None):
         """Initialize the SolverWrapper."""
         self.net = network
         self.imdb = imdb
         self.roidb = roidb
         self.output_dir = output_dir
         self.pretrained_model = pretrained_model
+        self.tensorboardlogdir = tensorboardlogdir
 
         print 'Computing bounding-box regression targets...'
         if cfg.TRAIN.BBOX_REG:
@@ -150,6 +151,12 @@ class SolverWrapper(object):
                 else:
                     raise Exception('no checkpoint found')
 
+        if self.tensorboardlogdir is not None:
+            summary_writer = tf.train.SummaryWriter(self.tensorboardlogdir, sess.graph)
+            tf.scalar_summary('loss_box', loss_box)
+            tf.scalar_summary('cross_entropy',cross_entropy)
+            merged_summary_op = tf.merge_all_summaries()
+
         last_snapshot_iter = -1
         timer = Timer()
         for iter in range(max_iters):
@@ -168,12 +175,13 @@ class SolverWrapper(object):
 
             timer.tic()
 
-            rpn_loss_cls_value, rpn_loss_box_value,loss_cls_value, loss_box_value, _ = sess.run([rpn_cross_entropy, rpn_loss_box, cross_entropy, loss_box, train_op],
+            summary, rpn_loss_cls_value, rpn_loss_box_value,loss_cls_value, loss_box_value, _ = sess.run([merged_summary_op, rpn_cross_entropy, rpn_loss_box, cross_entropy, loss_box, train_op],
                                                                                                 feed_dict=feed_dict,
                                                                                                 options=run_options,
                                                                                                 run_metadata=run_metadata)
 
             timer.toc()
+            summary_writer.add_summary(summary, iter)
 
             if cfg.TRAIN.DEBUG_TIMELINE:
                 trace = timeline.Timeline(step_stats=run_metadata.step_stats)
