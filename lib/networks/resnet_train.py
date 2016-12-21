@@ -14,26 +14,30 @@ class resnet_base(Network):
 
     def residual_block(self, input, output, input_depth, output_depth, projection=False, trainable=True,
                        padding='SAME'):
-        if input not in ('pool1', 'res5a_branch2a_roipooling'):
+        firstconvstride = 1
+        if input in ['res5a_branch2a_roipooling']:
+            firstconvstride = 2
+        if input not in ['pool1', 'res5a_branch2a_roipooling']:
             input = "{}_relu".format(input)
-
+        outputkw = output[3:]
         (self.feed(input)
-        .conv(1, 1, input_depth, 1, 1, biased=False, relu=False, name='{}_branch2a'.format(output), padding=padding, bn=False)
-        .batch_normalization(relu=True, name='bn{}_branch2a'.format(output[3:]), is_training=False)
+        .conv(1, 1, input_depth, firstconvstride, firstconvstride, biased=False, relu=False, name='{}_branch2a'.format(output), padding=padding, bn=False)
+        .batch_normalization(relu=True, name='bn{}_branch2a'.format(outputkw), is_training=False)
         .conv(3, 3, input_depth, 1, 1, biased=False, relu=False, name='{}_branch2b'.format(output), bn=False)
-        .batch_normalization(relu=True, name='bn{}_branch2b'.format(output[3:]), is_training=False)
+        .batch_normalization(relu=True, name='bn{}_branch2b'.format(outputkw), is_training=False)
         .conv(1, 1, output_depth, 1, 1, biased=False, relu=False, name='{}_branch2c'.format(output), bn=False)
-        .batch_normalization(relu=False, name='bn{}_branch2c'.format(output[3:]), is_training=False))
+        .batch_normalization(relu=False, name='bn{}_branch2c'.format(outputkw), is_training=False))
+
+        inputForAdd = ['bn{}_branch2c'.format(outputkw)]
 
         if projection:
             # Option B: Projection shortcut
             (self.feed(input)
-             .conv(1, 1, output_depth, 1, 1, biased=False, relu=False, name='{}_branch1'.format(output), padding=padding, bn=False)
-             .batch_normalization(name='bn{}_branch1'.format(output[3:]), is_training=False, relu=False))
-            inputForAdd = ['{}_branch1'.format(output), '{}_branch2c'.format(output)]
+             .conv(1, 1, output_depth, firstconvstride, firstconvstride, biased=False, relu=False, name='{}_branch1'.format(output), padding=padding, bn=False)
+             .batch_normalization(name='bn{}_branch1'.format(outputkw), is_training=False, relu=False))
+            inputForAdd.append('bn{}_branch1'.format(outputkw))
         else:
-            inputForAdd = [input, '{}_branch2c'.format(output)]
-            # Option A: Zero-padding
+            inputForAdd.append(input)
 
         (self.feed(*inputForAdd)
              .add(name=output, relu=False)
@@ -90,7 +94,7 @@ class resnet_train(resnet_base):
          )
 
         # ========= RPN ============
-        (self.feed('res4f')
+        (self.feed('res4f_relu')
          .conv(3, 3, 512, 1, 1, name='rpn_conv/3x3', relu=True, bn=False)
          .conv(1, 1, len(anchor_scales) * 3 * 2, 1, 1, padding='VALID', relu=False, name='rpn_cls_score', bn=False))
 
@@ -117,7 +121,7 @@ class resnet_train(resnet_base):
          .proposal_target_layer(n_classes, name='roi-data'))
 
         # ========= RCNN ============
-        (self.feed('res4f', 'roi-data')
+        (self.feed('res4f_relu', 'roi-data')
          .roi_pool(7, 7, 1.0 / 16, name='res5a_branch2a_roipooling')
          .residual_block('res5a_branch2a_roipooling', 'res5a', 512, 2048, projection=True, trainable=True, padding='VALID')
          .residual_block('res5a', 'res5b', 512, 2048, projection=False, trainable=True)
