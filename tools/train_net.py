@@ -53,6 +53,9 @@ def parse_args():
     parser.add_argument('--set', dest='set_cfgs',
                         help='set config keys', default=None,
                         nargs=argparse.REMAINDER)
+    parser.add_argument('--logdir', dest='tensorboardlogdir',
+                        default = None, type=str,
+                        help='tensorflow logdir for tensorboard. if "sameasoutput" , the output dir will be used.')
 
     if len(sys.argv) == 1:
         parser.print_help()
@@ -84,6 +87,9 @@ if __name__ == '__main__':
 
     output_dir = get_output_dir(imdb, None)
     print 'Output will be saved to `{:s}`'.format(output_dir)
+    tensorboardlogdir =  args.tensorboardlogdir
+    if tensorboardlogdir == 'sameasoutput':
+        tensorboardlogdir = output_dir
 
     device_name = '/{}:{:d}'.format(args.device,args.device_id)
     print device_name
@@ -93,4 +99,5 @@ if __name__ == '__main__':
 
     train_net(network, imdb, roidb, output_dir,
               pretrained_model=args.pretrained_model,
-              max_iters=args.max_iters)
+              max_iters=args.max_iters,
+              tensorboardlogdir=tensorboardlogdir)

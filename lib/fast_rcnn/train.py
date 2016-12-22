@@ -246,12 +246,12 @@ def get_data_layer(roidb, num_classes):
     return layer
 
 
-def train_net(network, imdb, roidb, output_dir, pretrained_model=None, max_iters=40000):
+def train_net(network, imdb, roidb, output_dir, pretrained_model=None, max_iters=40000, tensorboardlogdir=None):
     """Train a Fast R-CNN network."""
 
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-        tensorboardlogdir = None #
-        sw = SolverWrapper(sess, network, imdb, roidb, output_dir, pretrained_model=pretrained_model, tensorboardlogdir=tensorboardlogdir)
+        sw = SolverWrapper(sess, network, imdb, roidb, output_dir, pretrained_model=pretrained_model,
+                           tensorboardlogdir=tensorboardlogdir)
         print 'Solving...'
         sw.train_model(sess, max_iters)
         print 'done solving'
