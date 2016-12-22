@@ -156,9 +156,9 @@ class SolverWrapper(object):
             # Gather initial summaries.
             summaries = set(tf.get_collection(tf.GraphKeys.SUMMARIES))
             summaries.add(tf.summary.scalar('loss_box', loss_box))
-            summaries.add(tf.summary.scalar('cross_entropy', cross_entropy))
+            summaries.add(tf.summary.scalar('loss_cls', cross_entropy))
             summaries.add(tf.summary.scalar('rpn_loss_box', rpn_loss_box))
-            summaries.add(tf.summary.scalar('rpn_cross_entropy', rpn_cross_entropy))
+            summaries.add(tf.summary.scalar('rpn_loss_cls', rpn_cross_entropy))
             merged_summary_op = tf.summary.merge(list(summaries), name='merged_summary_op')
 
 
