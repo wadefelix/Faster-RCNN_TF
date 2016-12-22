@@ -28,7 +28,7 @@ class resnet_base(Network):
         .conv(1, 1, output_depth, 1, 1, biased=False, relu=False, name='{}_branch2c'.format(output), bn=False)
         .batch_normalization(relu=False, name='bn{}_branch2c'.format(outputkw), is_training=False))
 
-        inputForAdd = ['bn{}_branch2c'.format(outputkw)]
+        inputForAdd = []
 
         if projection:
             # Option B: Projection shortcut
@@ -38,6 +38,8 @@ class resnet_base(Network):
             inputForAdd.append('bn{}_branch1'.format(outputkw))
         else:
             inputForAdd.append(input)
+
+        inputForAdd.append('bn{}_branch2c'.format(outputkw))
 
         (self.feed(*inputForAdd)
              .add(name=output, relu=False)
@@ -74,7 +76,7 @@ class resnet_train(resnet_base):
 
         #
         (self.feed('data')
-         .conv(7, 7, 64, 2, 2, name='conv1', trainable=False, bn=False, relu=False, biased=True)
+         .conv(7, 7, 64, 2, 2, name='conv1', relu=False)
          .batch_normalization(relu=True, name='bn_conv1', is_training=False)
          .max_pool(3, 3, 2, 2, padding='VALID', name='pool1'))
 
