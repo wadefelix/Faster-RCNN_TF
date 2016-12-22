@@ -293,7 +293,7 @@ arguments = [
 #['--gpu', 'gpu_id', int, 0, 'GPU id to use'],
 ['--net', 'net', str, 'VGGnet_test', 'Network to use [vgg16]'],
 ['--model', 'model', str, None, 'Model path'],
-['--server', 'gapt_svr',str,'http://192.168.1.11/gapt/', 'GATP Server Address'],
+['--server', 'gapt_svr',str,'http://127.0.0.1/gapt/', 'GATP Server Address'],
 ['--templateid', 'gapt_temp_id', str, '22', 'GATP Template ID'],
 ['--tasktitle', 'gapt_task_title', str, datetime.datetime.now().strftime('%Y%m%d%H%M%S_%f'), 'GATP Task Description'],
 ['--taskdescrip', 'gapt_task_descrip', str, '', 'GATP Task Description'],

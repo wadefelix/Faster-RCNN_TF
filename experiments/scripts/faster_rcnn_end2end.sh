@@ -30,7 +30,7 @@ case $DATASET in
     TRAIN_IMDB="voc_6829_train"
     TEST_IMDB="voc_2007_test"
     PT_DIR="pascal_voc"
-    ITERS=70000
+    ITERS=200
     ;;
   coco)
     # This is a very long and slow training schedule
@@ -61,7 +61,10 @@ NET_INIT="/home/merge/Faster-RCNN_TF/output/faster_rcnn_end2end/voc_6829_train/"
 
 elif [ ${NET} = "resnet" ]; then
   NETWORK=Resnet50_train
+  #NETWORK=resnet_train
 
+TENSORBOARDLOGDIR=sameasoutput
+#TENSORBOARDLOGDIR=~/resnet_logs/
 # download from https://github.com/miraclebiu/TFFRCN_resnet50
 NET_INIT=/home/merge/data/imagenet_models/Resnet50.npy
 
@@ -73,6 +76,7 @@ time python ./tools/train_net.py --device ${DEV} --device_id ${DEV_ID} \
   --iters ${ITERS} \
   --cfg experiments/cfgs/faster_rcnn_end2end.yml \
   --network ${NETWORK} \
+  --logdir ${TENSORBOARDLOGDIR} \
   ${EXTRA_ARGS}
 
 set +x
@@ -85,9 +89,8 @@ elif [ ${NET} = "resnet" ]; then
   NETWORK=Resnet50_test
 fi
 
-time python ./tools/test_net.py --device ${DEV} --device_id ${DEV_ID} \
-  --weights ${NET_FINAL} \
-  --imdb ${TEST_IMDB} \
-  --cfg experiments/cfgs/faster_rcnn_end2end.yml \
-  --network ${NETWORK} \
-  ${EXTRA_ARGS}
+python ./tools/gapttest.py --net ${NETWORK} \
+  --model ${NET_FINAL} \
+  --templateid 22 \
+  --tasktitle "${NETWORK} `date +'%Y-%m-%d_%H-%M-%S'`" \
+  --taskdescrip "net=${NETWORK}, model=${NET_FINAL}, NET_INIT=${NET_INIT} "
