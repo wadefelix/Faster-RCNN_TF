@@ -64,7 +64,7 @@ class resnet_test(resnet_base):
              .spatial_reshape_layer(len(anchor_scales)*3*2,name = 'rpn_cls_prob_reshape'))
 
         (self.feed('rpn_cls_prob_reshape','rpn_bbox_pred','im_info')
-             .proposal_layer(_feat_stride, anchor_scales, 'TRAIN',name = 'rois'))
+             .proposal_layer(_feat_stride, anchor_scales, 'TEST',name = 'rois'))
 
         #========= RCNN ============
         (self.feed('res4f_relu', 'rois')
