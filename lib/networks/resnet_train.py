@@ -20,13 +20,6 @@ class resnet_base(Network):
         if input not in ['pool1', 'res5a_branch2a_roipooling']:
             input = "{}_relu".format(input)
         outputkw = output[3:]
-        (self.feed(input)
-        .conv(1, 1, input_depth, firstconvstride, firstconvstride, biased=False, relu=False, name='{}_branch2a'.format(output), padding=padding, bn=False)
-        .batch_normalization(relu=True, name='bn{}_branch2a'.format(outputkw), is_training=False)
-        .conv(3, 3, input_depth, 1, 1, biased=False, relu=False, name='{}_branch2b'.format(output), bn=False)
-        .batch_normalization(relu=True, name='bn{}_branch2b'.format(outputkw), is_training=False)
-        .conv(1, 1, output_depth, 1, 1, biased=False, relu=False, name='{}_branch2c'.format(output), bn=False)
-        .batch_normalization(relu=False, name='bn{}_branch2c'.format(outputkw), is_training=False))
 
         inputForAdd = []
 
@@ -38,6 +31,14 @@ class resnet_base(Network):
             inputForAdd.append('bn{}_branch1'.format(outputkw))
         else:
             inputForAdd.append(input)
+
+        (self.feed(input)
+        .conv(1, 1, input_depth, firstconvstride, firstconvstride, biased=False, relu=False, name='{}_branch2a'.format(output), padding=padding, bn=False)
+        .batch_normalization(relu=True, name='bn{}_branch2a'.format(outputkw), is_training=False)
+        .conv(3, 3, input_depth, 1, 1, biased=False, relu=False, name='{}_branch2b'.format(output), bn=False)
+        .batch_normalization(relu=True, name='bn{}_branch2b'.format(outputkw), is_training=False)
+        .conv(1, 1, output_depth, 1, 1, biased=False, relu=False, name='{}_branch2c'.format(output), bn=False)
+        .batch_normalization(relu=False, name='bn{}_branch2c'.format(outputkw), is_training=False))
 
         inputForAdd.append('bn{}_branch2c'.format(outputkw))
 
