@@ -267,3 +267,17 @@ class Network(object):
     @layer
     def dropout(self, input, keep_prob, name):
         return tf.nn.dropout(input, keep_prob, name=name)
+
+    @layer
+    def add(self, input, name, relu = False):
+        for i in xrange(len(input)) :
+            if isinstance(input[i], tuple):
+                input[i] = input[i][0]
+        with tf.variable_scope(name) as scope:
+            #rslt = input[0]
+            #for i in xrange(1,len(input)):
+            #    rslt = rslt + input[i]
+            rslt = tf.add_n(input)
+            if relu:
+                rslt = tf.nn.relu(rslt, name=scope.name)
+            return rslt
