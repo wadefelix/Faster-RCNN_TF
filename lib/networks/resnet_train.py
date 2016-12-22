@@ -97,7 +97,7 @@ class resnet_train(resnet_base):
 
         # ========= RPN ============
         (self.feed('res4f_relu')
-         .conv(3, 3, 512, 1, 1, name='rpn_conv/3x3', relu=True, bn=False)
+         .conv(3, 3, 512, 1, 1, name='rpn_conv/3x3')
          .conv(1, 1, len(anchor_scales) * 3 * 2, 1, 1, padding='VALID', relu=False, name='rpn_cls_score', bn=False))
 
         (self.feed('rpn_cls_score', 'gt_boxes', 'im_info', 'data')
@@ -106,7 +106,7 @@ class resnet_train(resnet_base):
         # Loss of rpn_cls & rpn_boxes
 
         (self.feed('rpn_conv/3x3')
-         .conv(1, 1, len(anchor_scales) * 3 * 4, 1, 1, padding='VALID', relu=False, name='rpn_bbox_pred', bn=False))
+         .conv(1, 1, len(anchor_scales) * 3 * 4, 1, 1, padding='VALID', relu=False, name='rpn_bbox_pred'))
 
         # ========= RoI Proposal ============
         (self.feed('rpn_cls_score')

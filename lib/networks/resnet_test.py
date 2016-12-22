@@ -26,23 +26,23 @@ class resnet_test(resnet_base):
         #
         (self.feed('data')
              #.conv(7, 7, 64, 2, 2, name='conv1', trainable=False, bn=True, relu=True)
-             .conv(7, 7, 64, 2, 2, name='conv1', trainable=False, bn=False, relu=False, biased=False)
+             .conv(7, 7, 64, 2, 2, name='conv1', relu=False)
              .batch_normalization(relu=True, name='bn_conv1', is_training=False)
              .max_pool(3, 3, 2, 2, padding='VALID', name='pool1'))
 
         (self.residual_block('pool1', 'res2a', 64, 256, projection=True, trainable=False)
          .residual_block('res2a', 'res2b', 64, 256, projection=False, trainable=False)
          .residual_block('res2b', 'res2c', 64, 256, projection=False, trainable=False)
-         .residual_block('res2c', 'res3a', 128, 512, projection=True, trainable=True)
-         .residual_block('res3a', 'res3b', 128, 512, projection=False, trainable=True)
-         .residual_block('res3b', 'res3c', 128, 512, projection=False, trainable=True)
-         .residual_block('res3c', 'res3d', 128, 512, projection=False, trainable=True)
-         .residual_block('res3d', 'res4a', 256, 1024, projection=True, trainable=True)
-         .residual_block('res4a', 'res4b', 256, 1024, projection=False, trainable=True)
-         .residual_block('res4b', 'res4c', 256, 1024, projection=False, trainable=True)
-         .residual_block('res4c', 'res4d', 256, 1024, projection=False, trainable=True)
-         .residual_block('res4d', 'res4e', 256, 1024, projection=False, trainable=True)
-         .residual_block('res4e', 'res4f', 256, 1024, projection=False, trainable=True)
+         .residual_block('res2c', 'res3a', 128, 512, projection=True, trainable=False)
+         .residual_block('res3a', 'res3b', 128, 512, projection=False, trainable=False)
+         .residual_block('res3b', 'res3c', 128, 512, projection=False, trainable=False)
+         .residual_block('res3c', 'res3d', 128, 512, projection=False, trainable=False)
+         .residual_block('res3d', 'res4a', 256, 1024, projection=True, trainable=False)
+         .residual_block('res4a', 'res4b', 256, 1024, projection=False, trainable=False)
+         .residual_block('res4b', 'res4c', 256, 1024, projection=False, trainable=False)
+         .residual_block('res4c', 'res4d', 256, 1024, projection=False, trainable=False)
+         .residual_block('res4d', 'res4e', 256, 1024, projection=False, trainable=False)
+         .residual_block('res4e', 'res4f', 256, 1024, projection=False, trainable=False)
          )
 
         #========= RPN ============
@@ -57,22 +57,21 @@ class resnet_test(resnet_base):
 
         #========= RoI Proposal ============
         (self.feed('rpn_cls_score')
-             .reshape_layer(2,name = 'rpn_cls_score_reshape')
-             .softmax(name='rpn_cls_prob'))
+             .spatial_reshape_layer(2,name = 'rpn_cls_score_reshape')
+             .spatial_softmax(name='rpn_cls_prob'))
 
         (self.feed('rpn_cls_prob')
-             .reshape_layer(len(anchor_scales)*3*2,name = 'rpn_cls_prob_reshape'))
+             .spatial_reshape_layer(len(anchor_scales)*3*2,name = 'rpn_cls_prob_reshape'))
 
         (self.feed('rpn_cls_prob_reshape','rpn_bbox_pred','im_info')
              .proposal_layer(_feat_stride, anchor_scales, 'TRAIN',name = 'rois'))
 
         #========= RCNN ============
         (self.feed('res4f', 'rois')
-             .roi_pool(14, 14, 1.0/16, name='roi_pool')
+             .roi_pool(7, 7, 1.0/16, name='roi_pool')
          .residual_block('roi_pool', 'res5a', 512, 2048, projection=True, trainable=True)
          .residual_block('res5a', 'res5b', 512, 2048, projection=False, trainable=True)
          .residual_block('res5b', 'res5c', 512, 2048, projection=False, trainable=True)
-         .avg_pool(7, 7, 1, 1, padding='VALID', name='pool5')
          .fc(n_classes, relu=False, name='cls_score')
          .softmax(name='cls_prob')
          )
