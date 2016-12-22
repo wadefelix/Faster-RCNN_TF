@@ -24,7 +24,7 @@ EXTRA_ARGS_SLUG=${EXTRA_ARGS// /_}
 
 case $DATASET in
   pascal_voc)
-    TRAIN_IMDB="voc_6829_train"
+    TRAIN_IMDB="voc_2007_train"
     TEST_IMDB="voc_2007_test"
     PT_DIR="pascal_voc"
     ITERS=70000
@@ -48,17 +48,20 @@ LOG="experiments/logs/faster_rcnn_end2end_${NET}_${EXTRA_ARGS_SLUG}.txt.`date +'
 exec &> >(tee -a "$LOG")
 echo Logging output to "$LOG"
 
-NET_INIT="/home/merge/Faster-RCNN_TF/output/faster_rcnn_end2end/voc_6829_train/"
-#NET_INIT="/home/merge/Faster-RCNN_TF/output/faster_rcnn_end2end/voc_6829_train/VGGnet_fast_rcnn_iter_30000.ckpt"
-#NET_INIT=~/data/imagenet_models/VGG_imagenet.npy
-#NET_INIT="/home/merge/data/imagenet_models/VGG_imagenet.npy"
+NET_INIT="output/faster_rcnn_end2end/voc_2007_train/"
+#NET_INIT="output/faster_rcnn_end2end/voc_2007_train/VGGnet_fast_rcnn_iter_30000.ckpt"
+#NET_INIT=data/imagenet_models/VGG_imagenet.npy
+#NET_INIT="data/imagenet_models/VGG_imagenet.npy"
+
+TENSORBOARDLOGDIR=sameasoutput
 
 time python ./tools/train_net.py --device ${DEV} --device_id ${DEV_ID} \
   --imdb ${TRAIN_IMDB} \
   --weights ${NET_INIT} \
   --iters ${ITERS} \
   --cfg experiments/cfgs/faster_rcnn_end2end.yml \
-  --network VGGnet_train \
+  --network ${NETWORK} \
+  --logdir ${TENSORBOARDLOGDIR} \
   ${EXTRA_ARGS}
 
 set +x

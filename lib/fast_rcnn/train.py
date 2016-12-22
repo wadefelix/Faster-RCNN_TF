@@ -25,13 +25,14 @@ class SolverWrapper(object):
     use to unnormalize the learned bounding-box regression weights.
     """
 
-    def __init__(self, sess, network, imdb, roidb, output_dir, pretrained_model=None):
+    def __init__(self, sess, network, imdb, roidb, output_dir, pretrained_model=None, tensorboardlogdir=None):
         """Initialize the SolverWrapper."""
         self.net = network
         self.imdb = imdb
         self.roidb = roidb
         self.output_dir = output_dir
         self.pretrained_model = pretrained_model
+        self.tensorboardlogdir = tensorboardlogdir
 
         print 'Computing bounding-box regression targets...'
         if cfg.TRAIN.BBOX_REG:
@@ -150,6 +151,17 @@ class SolverWrapper(object):
                 else:
                     raise Exception('no checkpoint found')
 
+        if self.tensorboardlogdir is not None:
+            summary_writer = tf.summary.FileWriter(self.tensorboardlogdir, sess.graph)
+            # Gather initial summaries.
+            summaries = set(tf.get_collection(tf.GraphKeys.SUMMARIES))
+            summaries.add(tf.summary.scalar('loss_box', loss_box))
+            summaries.add(tf.summary.scalar('loss_cls', cross_entropy))
+            summaries.add(tf.summary.scalar('rpn_loss_box', rpn_loss_box))
+            summaries.add(tf.summary.scalar('rpn_loss_cls', rpn_cross_entropy))
+            merged_summary_op = tf.summary.merge(list(summaries), name='merged_summary_op')
+
+
         last_snapshot_iter = -1
         timer = Timer()
         for iter in range(max_iters):
@@ -185,10 +197,20 @@ class SolverWrapper(object):
                 print 'iter: %d / %d, total loss: %.4f, rpn_loss_cls: %.4f, rpn_loss_box: %.4f, loss_cls: %.4f, loss_box: %.4f, lr: %f'%\
                         (iter+1, max_iters, rpn_loss_cls_value + rpn_loss_box_value + loss_cls_value + loss_box_value ,rpn_loss_cls_value, rpn_loss_box_value,loss_cls_value, loss_box_value, lr.eval())
                 print 'speed: {:.3f}s / iter'.format(timer.average_time)
+                if self.tensorboardlogdir is not None:
+                    summary = sess.run(merged_summary_op,
+                                       feed_dict=feed_dict,
+                                       options=run_options,
+                                       run_metadata=run_metadata)
+                    summary_writer.add_summary(summary, iter+1)
+                    # summary_writer.flush()
 
             if (iter+1) % cfg.TRAIN.SNAPSHOT_ITERS == 0:
                 last_snapshot_iter = iter
                 self.snapshot(sess, iter)
+
+        if self.tensorboardlogdir is not None:
+            summary_writer.close()
 
         if last_snapshot_iter != iter:
             self.snapshot(sess, iter)
@@ -226,11 +248,12 @@ def get_data_layer(roidb, num_classes):
     return layer
 
 
-def train_net(network, imdb, roidb, output_dir, pretrained_model=None, max_iters=40000):
+def train_net(network, imdb, roidb, output_dir, pretrained_model=None, max_iters=40000, tensorboardlogdir=None):
     """Train a Fast R-CNN network."""
 
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-        sw = SolverWrapper(sess, network, imdb, roidb, output_dir, pretrained_model=pretrained_model)
+        sw = SolverWrapper(sess, network, imdb, roidb, output_dir, pretrained_model=pretrained_model,
+                           tensorboardlogdir=tensorboardlogdir)
         print 'Solving...'
         sw.train_model(sess, max_iters)
         print 'done solving'
