@@ -9,48 +9,39 @@
 
 __sets = {}
 
-import pdb
-import tensorflow as tf
-
-#__sets['VGGnet_train'] = networks.VGGnet_train()
-
-#__sets['VGGnet_test'] = networks.VGGnet_test()
-
 
 def get_network(name):
     """Get a network by name."""
-    #if not __sets.has_key(name):
-    #    raise KeyError('Unknown dataset: {}'.format(name))
-    #return __sets[name]
+
     if name.split('_')[0] == 'VGGnet':
         if name.split('_')[1] == 'test':
-            import networks.VGGnet_test
-            return networks.VGGnet_test()
+            from networks.VGGnet_test import VGGnet_test as VGGnet_test
+            return VGGnet_test()
         elif name.split('_')[1] == 'train':
-            import networks.VGGnet_train
-            return networks.VGGnet_train()
+            from networks.VGGnet_train import VGGnet_train as VGGnet_train
+            return VGGnet_train()
         else:
-           raise KeyError('Unknown dataset: {}'.format(name))
+           raise KeyError('Unknown network: {}'.format(name))
     elif name.split('_')[0] == 'resnet':
         if name.split('_')[1] == 'test':
-            import networks.resnet_test
-            return networks.resnet_test.resnet_test()
+            from networks.resnet_test import resnet_test as resnet_test
+            return resnet_test()
         elif name.split('_')[1] == 'train':
-            import networks.resnet_train
-            return networks.resnet_train.resnet_train()
+            from networks.resnet_train import resnet_train as resnet_train
+            return resnet_train()
         else:
-            raise KeyError('Unknown dataset: {}'.format(name))
+            raise KeyError('Unknown network: {}'.format(name))
     elif name.split('_')[0] == 'Resnet50':
         if name.split('_')[1] == 'test':
-            import networks.Resnet50_test
-            return networks.Resnet50_test.Resnet50_test()
+            from networks.Resnet50_test import Resnet50_test as Resnet50_test
+            return Resnet50_test()
         elif name.split('_')[1] == 'train':
-            import networks.Resnet50_train
-            return networks.Resnet50_train.Resnet50_train()
+            from networks.Resnet50_train import Resnet50_train as Resnet50_train
+            return Resnet50_train()
         else:
-            raise KeyError('Unknown dataset: {}'.format(name))
+            raise KeyError('Unknown network: {}'.format(name))
     else:
-        raise KeyError('Unknown dataset: {}'.format(name))
+        raise KeyError('Unknown network: {}'.format(name))
 
 def list_networks():
     """List all registered imdbs."""
