@@ -89,7 +89,11 @@ class Network(object):
         assert padding in ('SAME', 'VALID')
 
     @layer
-    def conv(self, input, k_h, k_w, c_o, s_h, s_w, name, relu=True, padding=DEFAULT_PADDING, group=1, trainable=True):
+    def conv(self, input, k_h, k_w, c_o, s_h, s_w, name, relu=True, padding=DEFAULT_PADDING, group=1, trainable=True,
+             bn = False, biased=None):
+        bias = not bn
+        if biased is not None:
+            bias = biased
         self.validate_padding(padding)
         c_i = input.get_shape()[-1]
         assert c_i%group==0
@@ -98,9 +102,8 @@ class Network(object):
         with tf.variable_scope(name) as scope:
 
             init_weights = tf.truncated_normal_initializer(0.0, stddev=0.01)
-            init_biases = tf.constant_initializer(0.0)
+            init_zeros = tf.constant_initializer(0.0)
             kernel = self.make_var('weights', [k_h, k_w, c_i/group, c_o], init_weights, trainable)
-            biases = self.make_var('biases', [c_o], init_biases, trainable)
 
             if group==1:
                 conv = convolve(input, kernel)
@@ -109,10 +112,22 @@ class Network(object):
                 kernel_groups = tf.split(3, group, kernel)
                 output_groups = [convolve(i, k) for i,k in zip(input_groups, kernel_groups)]
                 conv = tf.concat(3, output_groups)
+            if bn:
+                mean, var = tf.nn.moments(conv, axes=[0, 1, 2])
+                #beta = tf.Variable(tf.zeros([c_o]), name="beta")
+                #gamma = tf.Variable(tf.truncated_normal([c_o], stddev=0.1), name="gamma")
+                beta = self.make_var('beta', [c_o], init_zeros, trainable)
+                gamma = self.make_var('gamma', [c_o], init_weights, trainable)
+
+                conv = tf.nn.batch_norm_with_global_normalization(
+                    conv, mean, var, beta, gamma, 0.001,
+                    scale_after_normalization=True)
+            if bias:
+                biases = self.make_var('biases', [c_o], init_zeros, trainable)
+                conv = tf.nn.bias_add(conv, biases, name=scope.name)
             if relu:
-                bias = tf.nn.bias_add(conv, biases)
-                return tf.nn.relu(bias, name=scope.name)
-            return tf.nn.bias_add(conv, biases, name=scope.name)
+                conv = tf.nn.relu(conv, name=scope.name)
+            return conv
 
     @layer
     def relu(self, input, name):
@@ -281,3 +296,30 @@ class Network(object):
             if relu:
                 rslt = tf.nn.relu(rslt, name=scope.name)
             return rslt
+
+    @layer
+    def batch_normalization(self, input, name, relu=True, is_training=False):
+        if relu:
+            temp_layer = tf.contrib.layers.batch_norm(input, scale=True, center=True, is_training=is_training,
+                                                      scope=name)
+            return tf.nn.relu(temp_layer)
+        else:
+            return tf.contrib.layers.batch_norm(input, scale=True, center=True, is_training=is_training, scope=name)
+        #return input
+
+    @layer
+    def spatial_reshape_layer(self, input, d, name):
+        input_shape = tf.shape(input)
+        # transpose: (1, H, W, A x d) -> (1, H, WxA, d)
+        return tf.reshape(input, \
+                          [input_shape[0], \
+                           input_shape[1], \
+                           -1, \
+                           int(d)])
+
+    @layer
+    def spatial_softmax(self, input, name):
+        input_shape = tf.shape(input)
+        # d = input.get_shape()[-1]
+        return tf.reshape(tf.nn.softmax(tf.reshape(input, [-1, input_shape[3]])),
+                          [-1, input_shape[1], input_shape[2], input_shape[3]], name=name)

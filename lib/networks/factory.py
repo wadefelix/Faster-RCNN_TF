@@ -9,28 +9,30 @@
 
 __sets = {}
 
-import networks.VGGnet_train
-import networks.VGGnet_test
-import pdb
-import tensorflow as tf
-
-#__sets['VGGnet_train'] = networks.VGGnet_train()
-
-#__sets['VGGnet_test'] = networks.VGGnet_test()
-
 
 def get_network(name):
     """Get a network by name."""
-    #if not __sets.has_key(name):
-    #    raise KeyError('Unknown dataset: {}'.format(name))
-    #return __sets[name]
-    if name.split('_')[1] == 'test':
-       return networks.VGGnet_test()
-    elif name.split('_')[1] == 'train':
-       return networks.VGGnet_train()
+
+    if name.split('_')[0] == 'VGGnet':
+        if name.split('_')[1] == 'test':
+            from networks.VGGnet_test import VGGnet_test as VGGnet_test
+            return VGGnet_test()
+        elif name.split('_')[1] == 'train':
+            from networks.VGGnet_train import VGGnet_train as VGGnet_train
+            return VGGnet_train()
+        else:
+           raise KeyError('Unknown network: {}'.format(name))
+    elif name.split('_')[0] == 'resnet':
+        if name.split('_')[1] == 'test':
+            from networks.resnet_test import resnet_test as resnet_test
+            return resnet_test()
+        elif name.split('_')[1] == 'train':
+            from networks.resnet_train import resnet_train as resnet_train
+            return resnet_train()
+        else:
+            raise KeyError('Unknown network: {}'.format(name))
     else:
-       raise KeyError('Unknown dataset: {}'.format(name))
-    
+        raise KeyError('Unknown network: {}'.format(name))
 
 def list_networks():
     """List all registered imdbs."""
