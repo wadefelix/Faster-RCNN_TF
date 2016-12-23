@@ -15,7 +15,7 @@ class resnet_base(Network):
     def residual_block(self, input, output, input_depth, output_depth, projection=False, trainable=True,
                        padding='SAME'):
         firstconvstride = 1
-        if input in ['res5a_branch2a_roipooling']:
+        if input in ['res5a_branch2a_roipooling','res3d','res2c']:
             firstconvstride = 2
         if input not in ['pool1', 'res5a_branch2a_roipooling']:
             input = "{}_relu".format(input)
@@ -77,7 +77,7 @@ class resnet_train(resnet_base):
 
         #
         (self.feed('data')
-         .conv(7, 7, 64, 2, 2, name='conv1', relu=False)
+         .conv(7, 7, 64, 2, 2, relu=False, name='conv1')
          .batch_normalization(relu=True, name='bn_conv1', is_training=False)
          .max_pool(3, 3, 2, 2, padding='VALID', name='pool1'))
 
@@ -99,7 +99,7 @@ class resnet_train(resnet_base):
         # ========= RPN ============
         (self.feed('res4f_relu')
          .conv(3, 3, 512, 1, 1, name='rpn_conv/3x3')
-         .conv(1, 1, len(anchor_scales) * 3 * 2, 1, 1, padding='VALID', relu=False, name='rpn_cls_score', bn=False))
+         .conv(1, 1, len(anchor_scales) * 3 * 2, 1, 1, padding='VALID', relu=False, name='rpn_cls_score'))
 
         (self.feed('rpn_cls_score', 'gt_boxes', 'im_info', 'data')
          .anchor_target_layer(_feat_stride, anchor_scales, name='rpn-data'))
@@ -129,7 +129,6 @@ class resnet_train(resnet_base):
          .residual_block('res5a_branch2a_roipooling', 'res5a', 512, 2048, projection=True, trainable=True, padding='VALID')
          .residual_block('res5a', 'res5b', 512, 2048, projection=False, trainable=True)
          .residual_block('res5b', 'res5c', 512, 2048, projection=False, trainable=True)
-         #.avg_pool(7, 7, 1, 1, padding='VALID', name='pool5')
          .fc(n_classes, relu=False, name='cls_score')
          .softmax(name='cls_prob')
          )
