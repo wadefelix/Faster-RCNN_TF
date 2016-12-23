@@ -27,9 +27,9 @@ EXTRA_ARGS_SLUG=${EXTRA_ARGS// /_}
 
 case $DATASET in
   pascal_voc)
-    TRAIN_IMDB="voc_6829_train"
+    TRAIN_IMDB="voc_2007_train"
     TEST_IMDB="voc_2007_test"
-    ITERS=200
+    ITERS=70000
     ;;
   coco)
     # This is a very long and slow training schedule
