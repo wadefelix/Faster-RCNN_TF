@@ -25,7 +25,7 @@ class SolverWrapper(object):
     use to unnormalize the learned bounding-box regression weights.
     """
 
-    def __init__(self, sess, network, imdb, roidb, output_dir, pretrained_model=None, tensorboardlogdir=None):
+    def __init__(self, sess, saver, network, imdb, roidb, output_dir, pretrained_model=None, tensorboardlogdir=None):
         """Initialize the SolverWrapper."""
         self.net = network
         self.imdb = imdb
@@ -40,7 +40,7 @@ class SolverWrapper(object):
         print 'done'
 
         # For checkpoint
-        self.saver = tf.train.Saver(max_to_keep=100)
+        self.saver = saver
 
     def snapshot(self, sess, iter):
         """Take a snapshot of the network after unnormalizing the learned
@@ -80,6 +80,26 @@ class SolverWrapper(object):
                 sess.run(net.bbox_weights_assign, feed_dict={net.bbox_weights: orig_0})
                 sess.run(net.bbox_bias_assign, feed_dict={net.bbox_biases: orig_1})
 
+    def _modified_smooth_l1(self, sigma, bbox_pred, bbox_targets, bbox_inside_weights, bbox_outside_weights):
+        """
+            ResultLoss = outside_weights * SmoothL1(inside_weights * (bbox_pred - bbox_targets))
+            SmoothL1(x) = 0.5 * (sigma * x)^2,    if |x| < 1 / sigma^2
+                          |x| - 0.5 / sigma^2,    otherwise
+        """
+        sigma2 = sigma * sigma
+
+        inside_mul = tf.multiply(bbox_inside_weights, tf.subtract(bbox_pred, bbox_targets))
+
+        smooth_l1_sign = tf.cast(tf.less(tf.abs(inside_mul), 1.0 / sigma2), tf.float32)
+        smooth_l1_option1 = tf.multiply(tf.multiply(inside_mul, inside_mul), 0.5 * sigma2)
+        smooth_l1_option2 = tf.subtract(tf.abs(inside_mul), 0.5 / sigma2)
+        smooth_l1_result = tf.add(tf.multiply(smooth_l1_option1, smooth_l1_sign),
+                                  tf.multiply(smooth_l1_option2, tf.abs(tf.subtract(smooth_l1_sign, 1.0))))
+
+        outside_mul = tf.multiply(bbox_outside_weights, smooth_l1_result)
+
+        return outside_mul
+
 
     def train_model(self, sess, max_iters):
         """Network training loop."""
@@ -90,38 +110,35 @@ class SolverWrapper(object):
         # classification loss
         rpn_cls_score = tf.reshape(self.net.get_output('rpn_cls_score_reshape'),[-1,2])
         rpn_label = tf.reshape(self.net.get_output('rpn-data')[0],[-1])
-        # ignore_label(-1)
         rpn_cls_score = tf.reshape(tf.gather(rpn_cls_score,tf.where(tf.not_equal(rpn_label,-1))),[-1,2])
         rpn_label = tf.reshape(tf.gather(rpn_label,tf.where(tf.not_equal(rpn_label,-1))),[-1])
-        rpn_cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(rpn_cls_score, rpn_label))
-
+        rpn_cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=rpn_cls_score, labels=rpn_label))
 
         # bounding box regression L1 loss
         rpn_bbox_pred = self.net.get_output('rpn_bbox_pred')
         rpn_bbox_targets = tf.transpose(self.net.get_output('rpn-data')[1],[0,2,3,1])
         rpn_bbox_inside_weights = tf.transpose(self.net.get_output('rpn-data')[2],[0,2,3,1])
         rpn_bbox_outside_weights = tf.transpose(self.net.get_output('rpn-data')[3],[0,2,3,1])
-        smoothL1_sign = tf.cast(tf.less(tf.abs(tf.sub(rpn_bbox_pred, rpn_bbox_targets)),1),tf.float32)
-        rpn_loss_box = tf.mul(tf.reduce_mean(tf.reduce_sum(tf.mul(rpn_bbox_outside_weights,tf.add(
-                       tf.mul(tf.mul(tf.pow(tf.mul(rpn_bbox_inside_weights, tf.sub(rpn_bbox_pred, rpn_bbox_targets))*3,2),0.5),smoothL1_sign),
-                       tf.mul(tf.sub(tf.abs(tf.sub(rpn_bbox_pred, rpn_bbox_targets)),0.5/9.0),tf.abs(smoothL1_sign-1)))), reduction_indices=[1,2])),10)
 
+        rpn_smooth_l1 = self._modified_smooth_l1(3.0, rpn_bbox_pred, rpn_bbox_targets, rpn_bbox_inside_weights, rpn_bbox_outside_weights)
+        rpn_loss_box = tf.reduce_mean(tf.reduce_sum(rpn_smooth_l1, reduction_indices=[1, 2, 3]))
+ 
         # R-CNN
         # classification loss
         cls_score = self.net.get_output('cls_score')
-        #label = tf.placeholder(tf.int32, shape=[None])
         label = tf.reshape(self.net.get_output('roi-data')[1],[-1])
-        cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(cls_score, label))
-
+        cross_entropy = tf.reduce_mean(tf.nn.sparse_softmax_cross_entropy_with_logits(logits=cls_score, labels=label))
 
         # bounding box regression L1 loss
         bbox_pred = self.net.get_output('bbox_pred')
         bbox_targets = self.net.get_output('roi-data')[2]
         bbox_inside_weights = self.net.get_output('roi-data')[3]
         bbox_outside_weights = self.net.get_output('roi-data')[4]
-        loss_box = tf.reduce_mean(tf.reduce_sum(tf.mul(bbox_outside_weights,tf.mul(bbox_inside_weights, tf.abs(tf.sub(bbox_pred, bbox_targets)))), reduction_indices=[1]))
 
+        smooth_l1 = self._modified_smooth_l1(1.0, bbox_pred, bbox_targets, bbox_inside_weights, bbox_outside_weights)
+        loss_box = tf.reduce_mean(tf.reduce_sum(smooth_l1, reduction_indices=[1]))
 
+        # final loss
         loss = cross_entropy + loss_box + rpn_cross_entropy + rpn_loss_box
 
         # optimizer and learning rate
@@ -132,12 +149,12 @@ class SolverWrapper(object):
         train_op = tf.train.MomentumOptimizer(lr, momentum).minimize(loss, global_step=global_step)
 
         # iintialize variables
-        sess.run(tf.initialize_all_variables())
+        sess.run(tf.global_variables_initializer())
         if self.pretrained_model is not None:
             if self.pretrained_model.endswith('.npy'):
                 print ('Loading pretrained model '
                    'weights from {:s}').format(self.pretrained_model)
-                self.net.load(self.pretrained_model, sess, True)
+                self.net.load(self.pretrained_model, sess, self.saver, True)
             elif self.pretrained_model.endswith('.ckpt'):
                 # restore from checkpoint
                 print 'Restore from checkpoint {}'.format(self.pretrained_model)
@@ -160,7 +177,6 @@ class SolverWrapper(object):
             summaries.add(tf.summary.scalar('rpn_loss_box', rpn_loss_box))
             summaries.add(tf.summary.scalar('rpn_loss_cls', rpn_cross_entropy))
             merged_summary_op = tf.summary.merge(list(summaries), name='merged_summary_op')
-
 
         last_snapshot_iter = -1
         timer = Timer()
@@ -245,12 +261,37 @@ def get_data_layer(roidb, num_classes):
 
     return layer
 
+def filter_roidb(roidb):
+    """Remove roidb entries that have no usable RoIs."""
+
+    def is_valid(entry):
+        # Valid images have:
+        #   (1) At least one foreground RoI OR
+        #   (2) At least one background RoI
+        overlaps = entry['max_overlaps']
+        # find boxes with sufficient overlap
+        fg_inds = np.where(overlaps >= cfg.TRAIN.FG_THRESH)[0]
+        # Select background RoIs as those within [BG_THRESH_LO, BG_THRESH_HI)
+        bg_inds = np.where((overlaps < cfg.TRAIN.BG_THRESH_HI) &
+                           (overlaps >= cfg.TRAIN.BG_THRESH_LO))[0]
+        # image is only valid if such boxes exist
+        valid = len(fg_inds) > 0 or len(bg_inds) > 0
+        return valid
+
+    num = len(roidb)
+    filtered_roidb = [entry for entry in roidb if is_valid(entry)]
+    num_after = len(filtered_roidb)
+    print 'Filtered {} roidb entries: {} -> {}'.format(num - num_after,
+                                                       num, num_after)
+    return filtered_roidb
+
 
 def train_net(network, imdb, roidb, output_dir, pretrained_model=None, max_iters=40000, tensorboardlogdir=None):
     """Train a Fast R-CNN network."""
-
+    roidb = filter_roidb(roidb)
+    saver = tf.train.Saver(max_to_keep=100)
     with tf.Session(config=tf.ConfigProto(allow_soft_placement=True)) as sess:
-        sw = SolverWrapper(sess, network, imdb, roidb, output_dir, pretrained_model=pretrained_model,
+        sw = SolverWrapper(sess, saver, network, imdb, roidb, output_dir, pretrained_model=pretrained_model,
                            tensorboardlogdir=tensorboardlogdir)
         print 'Solving...'
         sw.train_model(sess, max_iters)
