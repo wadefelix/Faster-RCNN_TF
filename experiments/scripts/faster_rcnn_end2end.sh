@@ -1,13 +1,11 @@
 #!/bin/bash
 # Usage:
-# ./experiments/scripts/faster_rcnn_end2end.sh GPU NET DATASET [options args to {train,test}_net.py]
+# ./experiments/scripts/faster_rcnn_end2end.sh
 # DATASET is either pascal_voc or coco.
 #
 # Example:
 # ./experiments/scripts/faster_rcnn_end2end.sh 0 VGG_CNN_M_1024 pascal_voc \
 #   --set EXP_DIR foobar RNG_SEED 42 TRAIN.SCALES "[400, 500, 600, 700]"
-
-. ./data/copydatatoramdisk.sh /home/merge/data/6040+383+0406/VOC6829 VOC6829
 
 set -x
 set -e
@@ -52,16 +50,15 @@ echo Logging output to "$LOG"
 
 if [ ${NET} = "VGG16" ]; then
     NETWORK=VGGnet_train
-    NET_INIT="/home/merge/Faster-RCNN_TF/output/faster_rcnn_end2end/voc_6829_train/"
-    #NET_INIT="/home/merge/Faster-RCNN_TF/output/faster_rcnn_end2end/voc_6829_train/VGGnet_fast_rcnn_iter_30000.ckpt"
-    #NET_INIT=~/data/imagenet_models/VGG_imagenet.npy
-    #NET_INIT="/home/merge/data/imagenet_models/VGG_imagenet.npy"
+    NET_INIT="~/Faster-RCNN_TF/output/faster_rcnn_end2end/voc_6829_train/"
+    #NET_INIT="~/Faster-RCNN_TF/output/faster_rcnn_end2end/voc_6829_train/VGGnet_fast_rcnn_iter_30000.ckpt"
+    #NET_INIT="~/data/imagenet_models/VGG_imagenet.npy"
 
 elif [ ${NET} = "resnet" ]; then
     #NETWORK=Resnet50_train
     NETWORK=resnet_train
     # download from https://github.com/miraclebiu/TFFRCN_resnet50
-    NET_INIT=/home/merge/data/imagenet_models/Resnet50.npy
+    NET_INIT=~/data/imagenet_models/Resnet50.npy
 fi
 
 TENSORBOARDLOGDIR=sameasoutput
